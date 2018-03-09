@@ -3,10 +3,10 @@ CFLAGS = -Wall
 
 all: client server
 
-client: client.o misc.o
+client: client.o misc.o misc.h
 	${CC} ${CFLAGS} -o client $^
 
-server: server.o misc.o
+server: server.o misc.o misc.h
 	${CC} ${CFLAGS} -o server $^
 
 clean:

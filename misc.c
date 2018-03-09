@@ -2,15 +2,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define RCVSIZE     1024
-#define ERROR       -1
-
-#define STRSIZE(s) (strlen(s)+1)
+#define ERROR -1
+#define NO_FLAGS 0
 
 int createSocket() {
   const int valid = 1;
@@ -40,13 +37,13 @@ void bindSocket(int desc, struct sockaddr_in addr) {
 }
 
 void recieveSocket(int desc) {
-  char buffer[RCVSIZE];
-  recv(desc, buffer, RCVSIZE, 0);
-  printf("%s", buffer);
+  Datagram dgram = {0};
+  recv(desc, &dgram, sizeof(Datagram), NO_FLAGS);
+  printf("%s", dgram.data);
 }
 
 void sendSocket(int desc) {
-  char msg[RCVSIZE] = {0};
-  fgets(msg, RCVSIZE, stdin);
-  send(desc, msg, STRSIZE(msg), 0);
+  Datagram dgram = {0};
+  fgets(dgram.data, SEGSIZE, stdin);
+  send(desc, &dgram, DGRAMSIZE(dgram), NO_FLAGS);
 }
