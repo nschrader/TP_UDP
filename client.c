@@ -9,8 +9,8 @@
 
 #define ROOT_PORTS  1024
 
-static struct sockaddr_in getArguments(const int argc, const char *argv[]) {
-  struct sockaddr_in addr;
+static Address getArguments(const int argc, const char *argv[]) {
+  Address addr;
 
   if (argc != 3) {
     fprintf(stderr, "Wrong number of arguments\n Usage: %s [ip] [port]\n", argv[0]);
@@ -33,10 +33,11 @@ static struct sockaddr_in getArguments(const int argc, const char *argv[]) {
 }
 
 int main (const int argc, const char *argv[]) {
-  struct sockaddr_in addr = getArguments(argc, argv);
+Address addr = getArguments(argc, argv);
   int desc = createSocket();
   connectSocket(desc, addr);
-  sendSocket(desc);
+  Init3WayHandshake(desc);
+  sendDatagram(desc);
 
   close(desc);
   return EXIT_SUCCESS;

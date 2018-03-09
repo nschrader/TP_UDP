@@ -9,20 +9,31 @@
 #define GCC_PACKED __attribute__((packed))
 #define DGRAMSIZE(d) (sizeof(char)*(strlen(d.data)+2)+sizeof(int))
 
-typedef enum {
-  NONE, SYN, ACK
-} DatagramFlags;
+typedef enum GCC_PACKED {
+  NONE = 0, SYN = 2, RST = 4, ACK = 8
+} EDatagramFlags;
 
 typedef struct GCC_PACKED {
-  DatagramFlags flags;
+  EDatagramFlags flags;
   int segment;
   char data[SEGSIZE];
 } Datagram;
 
+typedef enum {
+  NOT_CONNECTED, CONNECTED
+} EConStatus;
+
+typedef struct sockaddr_in Address;
+
 int createSocket();
-void connectSocket(int desc, struct sockaddr_in addr);
-void bindSocket(int desc, struct sockaddr_in addr);
-void recieveSocket(int desc);
-void sendSocket(int desc);
+void connectSocket(int desc, Address addr);
+void disconnectSocket(int desc);
+void bindSocket(int desc, Address addr);
+void ResetSocket(int desc);
+Datagram receiveDatagram(int desc);
+void sendDatagram(int desc);
+void Init3WayHandshake(int desc);
+void Acpt3WayHandshake(int desc);
+void Rfse3WayHandshake(int desc);
 
 #endif
