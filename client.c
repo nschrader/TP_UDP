@@ -1,19 +1,13 @@
+#include "misc.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "misc.h"
-
-#define RCVSIZE     1024
 #define ROOT_PORTS  1024
-#define ERROR       -1
-
-#define STRSIZE(s) (strlen(s)+1)
 
 static struct sockaddr_in getArguments(const int argc, const char *argv[]) {
   struct sockaddr_in addr;
@@ -36,20 +30,6 @@ static struct sockaddr_in getArguments(const int argc, const char *argv[]) {
   }
 
   return addr;
-}
-
-static void connectSocket(int desc, struct sockaddr_in addr) {
-  if (connect(desc, (struct sockaddr*) &addr, sizeof(addr)) == ERROR) {
-    perror("connect failed");
-    close(desc);
-    exit(EXIT_FAILURE);
-  }
-}
-
-static void sendSocket(int desc) {
-  char msg[RCVSIZE] = {0};
-  fgets(msg, RCVSIZE, stdin);
-  send(desc, msg, STRSIZE(msg), 0);
 }
 
 int main (const int argc, const char *argv[]) {
