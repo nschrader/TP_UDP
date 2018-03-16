@@ -1,4 +1,6 @@
-#include "misc.h"
+#include "io.h"
+#include "datagram.h"
+#include "protocol.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,8 +8,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-#define ROOT_PORTS  1024
 
 static Address getArguments(const int argc, const char *argv[]) {
   Address addr;
@@ -38,7 +38,7 @@ int main(const int argc, const char *argv[]) {
   connectSocket(desc, addr);
   Init3WayHandshake(desc);
 
-  while(!feof(stdin)) {
+  while (!feof(stdin)) {
     Datagram dgram = readData();
     dgram.header.flags = 0;
     dgram.header.segment = 0;

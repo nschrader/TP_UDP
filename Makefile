@@ -1,12 +1,14 @@
-CC = gcc
-CFLAGS = -Wall -g
+CC 			= gcc
+CFLAGS 	= -Wall -g
+COMMON	= io.o protocol.o datagram.o
+HEADER	= ${COMMON.o:.h}
 
 all: client server
 
-client: client.o misc.o misc.h
+client: client.o ${COMMON} ${HEADER}
 	${CC} ${CFLAGS} -o client $^
 
-server: server.o misc.o misc.h
+server: server.o ${COMMON} ${HEADER}
 	${CC} ${CFLAGS} -o server $^
 
 clean:

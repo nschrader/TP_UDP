@@ -1,15 +1,11 @@
-#include "misc.h"
+#include "io.h"
+#include "datagram.h"
+#include "protocol.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-
-#define ROOT_PORTS  1024
-
-EConStatus status = NOT_CONNECTED;
 
 Address getArguments(const int argc, const char *argv[]) {
   Address addr;
@@ -31,35 +27,14 @@ Address getArguments(const int argc, const char *argv[]) {
   return addr;
 }
 
-static void handleStateLogic(Datagram dgram, int desc) {
-  if (status == CONNECTED) {
-    if (dgram.header.flags & SYN) {
-      Rfse3WayHandshake(desc);
-      status = NOT_CONNECTED;
-    } else if (dgram.header.flags & RST) {
-      status = NOT_CONNECTED;
-    } else {
-      writeData(dgram);
-    }
-  } else {
-    if (dgram.header.flags & SYN) {
-      Acpt3WayHandshake(desc);
-      status = CONNECTED;
-    } else {
-      ResetSocket(desc);
-    }
-  }
-}
-
 int main(const int argc, const char *argv[]) {
   Address addr = getArguments(argc, argv);
   int desc = createSocket();
   bindSocket(desc, addr);
 
+  EConStatus status = NOT_CONNECTED;
   while (true) {
-    disconnectSocket(desc); //Receive from everyone
-    Datagram dgram = receiveDatagram(desc); //Respond only to sender
-    handleStateLogic(dgram, desc);
+    status = acceptDatagram(desc, status, writeData);
   }
 
   close(desc);
