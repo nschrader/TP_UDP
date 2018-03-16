@@ -32,12 +32,19 @@ static Address getArguments(const int argc, const char *argv[]) {
   return addr;
 }
 
-int main (const int argc, const char *argv[]) {
-Address addr = getArguments(argc, argv);
+int main(const int argc, const char *argv[]) {
+  Address addr = getArguments(argc, argv);
   int desc = createSocket();
   connectSocket(desc, addr);
   Init3WayHandshake(desc);
-  sendDatagram(desc);
+
+  while(!feof(stdin)) {
+    Datagram dgram = readData();
+    dgram.header.flags = 0;
+    dgram.header.segment = 0;
+    dgram.header.acknowledgment = 0;
+    sendDatagram(desc, dgram);
+  }
 
   close(desc);
   return EXIT_SUCCESS;

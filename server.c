@@ -33,16 +33,16 @@ Address getArguments(const int argc, const char *argv[]) {
 
 static void handleStateLogic(Datagram dgram, int desc) {
   if (status == CONNECTED) {
-    if (dgram.flags & SYN) {
+    if (dgram.header.flags & SYN) {
       Rfse3WayHandshake(desc);
       status = NOT_CONNECTED;
-    } else if (dgram.flags & RST) {
+    } else if (dgram.header.flags & RST) {
       status = NOT_CONNECTED;
     } else {
-      printf("%s", dgram.data);
+      writeData(dgram);
     }
   } else {
-    if (dgram.flags & SYN) {
+    if (dgram.header.flags & SYN) {
       Acpt3WayHandshake(desc);
       status = CONNECTED;
     } else {
@@ -57,8 +57,8 @@ int main(const int argc, const char *argv[]) {
   bindSocket(desc, addr);
 
   while (true) {
-    disconnectSocket(desc);
-    Datagram dgram = receiveDatagram(desc);
+    disconnectSocket(desc); //Receive from everyone
+    Datagram dgram = receiveDatagram(desc); //Respond only to sender
     handleStateLogic(dgram, desc);
   }
 

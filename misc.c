@@ -44,16 +44,16 @@ void bindSocket(int desc, Address addr) {
 }
 
 void ResetSocket(int desc) {
-  Datagram rst = {0};
+  DatagramHeader rst = {0};
   rst.flags = RST;
-  if (send(desc, &rst, DGRAMSIZE(rst), NO_FLAGS) == ERROR) {
+  if (send(desc, &rst, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
     perror("Could reset client");
     exit(EXIT_FAILURE);
   }
 }
 
 Datagram receiveDatagram(int desc) {
-  Datagram dgram = {0};
+  Datagram dgram = {{0}};
   Address source;
   struct sockaddr* src = (struct sockaddr*) &source;
   socklen_t len = sizeof(Address);
@@ -67,9 +67,7 @@ Datagram receiveDatagram(int desc) {
   return dgram;
 }
 
-void sendDatagram(int desc) {
-  Datagram dgram = {0};
-  fgets(dgram.data, SEGSIZE, stdin);
+void sendDatagram(int desc, Datagram dgram) {
   if (send(desc, &dgram, DGRAMSIZE(dgram), NO_FLAGS) == ERROR) {
     perror("Could not send datagram");
     exit(EXIT_FAILURE);
@@ -77,9 +75,9 @@ void sendDatagram(int desc) {
 }
 
 void Init3WayHandshake(int desc) {
-  Datagram syn = {0};
+  DatagramHeader syn = {0};
   syn.flags = SYN;
-  if (send(desc, &syn, DGRAMSIZE(syn), NO_FLAGS) == ERROR) {
+  if (send(desc, &syn, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
     goto refused;
   }
 
@@ -88,19 +86,19 @@ void Init3WayHandshake(int desc) {
     goto refused;
   }
 
-  if (synAck.flags & RST) {
+  if (synAck.header.flags & RST) {
     goto refused;
   }
-  if (!(synAck.flags & ACK) || !(synAck.flags & SYN)) {
+  if (!(synAck.header.flags & ACK) || !(synAck.header.flags & SYN)) {
     goto refused;
   }
 
-  Datagram ack = {0};
+  DatagramHeader ack = {0};
   ack.flags = ACK;
-  if (send(desc, &ack, DGRAMSIZE(ack), NO_FLAGS) == ERROR) {
+  if (send(desc, &ack, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
     goto refused;
   }
-  
+
   return;
 
   refused:
@@ -112,19 +110,29 @@ void Init3WayHandshake(int desc) {
 }
 
 void Acpt3WayHandshake(int desc) {
-  Datagram synAck = {0};
+  DatagramHeader synAck = {0};
   synAck.flags = SYN | ACK;
-  if (send(desc, &synAck, DGRAMSIZE(synAck), NO_FLAGS) == ERROR) {
+  if (send(desc, &synAck, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
     perror("Could not handshake");
     exit(EXIT_FAILURE);
   }
 }
 
 void Rfse3WayHandshake(int desc) {
-  Datagram rst = {0};
-  rst.flags = RST;
+  Datagram rst = {{0}};
+  rst.header.flags = RST;
   if (send(desc, &rst, DGRAMSIZE(rst), NO_FLAGS) == ERROR) {
     perror("Could not handshake");
     exit(EXIT_FAILURE);
   }
+}
+
+Datagram readData() {
+  Datagram dgram = {{0}};
+  dgram.header.dataSize = fread(dgram.data, sizeof(uint8_t), SEGSIZE, stdin);
+  return dgram;
+}
+
+void writeData(Datagram dgram) {
+  fwrite(dgram.data, sizeof(uint8_t), dgram.header.dataSize, stdout);
 }
