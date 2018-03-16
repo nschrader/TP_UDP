@@ -51,7 +51,7 @@ static void handleStateLogic(Datagram dgram, int desc) {
   }
 }
 
-int main (const int argc, const char *argv[]) {
+int main(const int argc, const char *argv[]) {
   Address addr = getArguments(argc, argv);
   int desc = createSocket();
   bindSocket(desc, addr);

@@ -98,9 +98,10 @@ void Init3WayHandshake(int desc) {
   Datagram ack = {0};
   ack.flags = ACK;
   if (send(desc, &ack, DGRAMSIZE(ack), NO_FLAGS) == ERROR) {
-    //Getting here, whyever...
     goto refused;
   }
+  
+  return;
 
   refused:
   if (!errno) {
