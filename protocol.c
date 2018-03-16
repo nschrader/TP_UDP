@@ -11,7 +11,7 @@
 #define ERROR -1
 #define NO_FLAGS 0
 
-void Init3WayHandshake(int desc) {
+void initConnection(int desc) {
   DatagramHeader syn = {0};
   syn.flags = SYN;
   if (send(desc, &syn, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
@@ -22,7 +22,6 @@ void Init3WayHandshake(int desc) {
   if (recv(desc, &synAck, sizeof(Datagram), NO_FLAGS) == ERROR) {
     goto refused;
   }
-
   if (synAck.header.flags & RST) {
     goto refused;
   }
@@ -37,7 +36,6 @@ void Init3WayHandshake(int desc) {
   }
 
   return;
-
   refused:
   if (!errno) {
     errno = ECONNREFUSED;
@@ -46,22 +44,85 @@ void Init3WayHandshake(int desc) {
   exit(EXIT_FAILURE);
 }
 
-void Acpt3WayHandshake(int desc) {
+void tmntConnection(int desc) {
+  DatagramHeader fin = {0};
+  fin.flags = FIN;
+  if (send(desc, &fin, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
+    goto error;
+  }
+
+  Datagram finAck;
+  if (recv(desc, &finAck, sizeof(Datagram), NO_FLAGS) == ERROR) {
+    goto error;
+  }
+  if (finAck.header.flags & RST) {
+    goto error;
+  }
+  if (!(finAck.header.flags & ACK) || !(finAck.header.flags & FIN)) {
+    goto error;
+  }
+
+  DatagramHeader ack = {0};
+  ack.flags = ACK;
+  if (send(desc, &ack, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
+    goto error;
+  }
+
+  return;
+  error:
+  perror("Could not handshake");
+  exit(EXIT_FAILURE);
+}
+
+void acptConnection(int desc) {
   DatagramHeader synAck = {0};
   synAck.flags = SYN | ACK;
   if (send(desc, &synAck, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
-    perror("Could not handshake");
+    goto error;
+  }
+
+  Datagram ack;
+  if (recv(desc, &ack, sizeof(Datagram), NO_FLAGS) == ERROR) {
+    goto error;
+  }
+  if (ack.header.flags != ACK) {
+    goto error;
+  }
+
+  return;
+  error:
+  perror("Could not handshake");
+  exit(EXIT_FAILURE);
+}
+
+void rfseConnection(int desc) {
+  DatagramHeader rst = {0};
+  rst.flags = RST;
+  if (send(desc, &rst, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
+    perror("Could not reset connection");
     exit(EXIT_FAILURE);
   }
 }
 
-void Rfse3WayHandshake(int desc) {
-  Datagram rst = {{0}};
-  rst.header.flags = RST;
-  if (send(desc, &rst, DGRAMSIZE(rst), NO_FLAGS) == ERROR) {
-    perror("Could not handshake");
-    exit(EXIT_FAILURE);
+void clseConnection(int desc) {
+  DatagramHeader finAck = {0};
+  finAck.flags = FIN | ACK;
+  if (send(desc, &finAck, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
+    goto error;
   }
+
+  Datagram ack;
+  if (recv(desc, &ack, sizeof(Datagram), NO_FLAGS) == ERROR) {
+    goto error;
+  }
+  if (ack.header.flags != ACK) {
+    goto error;
+  }
+
+  return;
+  error:
+  perror("Could not handshake");
+  exit(EXIT_FAILURE);
 }
 
 EConStatus acceptDatagram(int desc, EConStatus status, ProcessDatagram success) {
@@ -70,19 +131,22 @@ EConStatus acceptDatagram(int desc, EConStatus status, ProcessDatagram success) 
 
   if (status == CONNECTED) {
     if (dgram.header.flags & SYN) {
-      Rfse3WayHandshake(desc);
+      rfseConnection(desc);
       status = NOT_CONNECTED;
+    } else if (dgram.header.flags & FIN) {
+      clseConnection(desc);
+      return NOT_CONNECTED;
     } else if (dgram.header.flags & RST) {
       status = NOT_CONNECTED;
     } else {
-      writeData(dgram);
+      success(dgram);
     }
   } else {
     if (dgram.header.flags & SYN) {
-      Acpt3WayHandshake(desc);
+      acptConnection(desc);
       status = CONNECTED;
     } else {
-      resetConnection(desc);
+      rfseConnection(desc);
     }
   }
 

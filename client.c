@@ -36,7 +36,7 @@ int main(const int argc, const char *argv[]) {
   Address addr = getArguments(argc, argv);
   int desc = createSocket();
   connectSocket(desc, addr);
-  Init3WayHandshake(desc);
+  initConnection(desc);
 
   while (!feof(stdin)) {
     Datagram dgram = readData();
@@ -46,6 +46,7 @@ int main(const int argc, const char *argv[]) {
     sendDatagram(desc, dgram);
   }
 
+  tmntConnection(desc);
   close(desc);
   return EXIT_SUCCESS;
 }

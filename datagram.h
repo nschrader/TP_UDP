@@ -11,7 +11,7 @@
 #define GCC_PACKED __attribute__((packed))
 
 typedef enum GCC_PACKED {
-  NONE = 0, SYN = 2, RST = 4, ACK = 8
+  NONE = 0, SYN = 2, RST = 4, ACK = 8, FIN = 16
 } EDatagramFlags;
 
 typedef struct GCC_PACKED {
@@ -32,7 +32,6 @@ typedef struct GCC_PACKED {
 
 typedef struct sockaddr_in Address;
 
-void resetConnection(int desc);
 Datagram receiveDatagram(int desc);
 void sendDatagram(int desc, Datagram dgram);
 

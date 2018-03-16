@@ -8,15 +8,6 @@
 #define ERROR -1
 #define NO_FLAGS 0
 
-void resetConnection(int desc) {
-  DatagramHeader rst = {0};
-  rst.flags = RST;
-  if (send(desc, &rst, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
-    perror("Could reset client");
-    exit(EXIT_FAILURE);
-  }
-}
-
 Datagram receiveDatagram(int desc) {
   Datagram dgram = {{0}};
   Address source;
