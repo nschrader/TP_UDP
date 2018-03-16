@@ -34,7 +34,7 @@ int main(const int argc, const char *argv[]) {
 
   EConStatus status = NOT_CONNECTED;
   while (true) {
-    status = acceptDatagram(desc, status, writeData);
+    status = acceptDatagram(desc, status, setDataPath, writeData);
   }
 
   close(desc);

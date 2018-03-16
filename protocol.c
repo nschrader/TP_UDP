@@ -11,10 +11,12 @@
 #define ERROR -1
 #define NO_FLAGS 0
 
-void initConnection(int desc) {
-  DatagramHeader syn = {0};
-  syn.flags = SYN;
-  if (send(desc, &syn, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
+void initConnection(int desc, char* filename) {
+  Datagram syn = {{0}};
+  syn.header.flags = SYN;
+  strncpy(syn.data, filename, SEGSIZE);
+  syn.data[SEGSIZE-1] = '\0';
+  if (send(desc, &syn, DGRAMSIZE(syn), NO_FLAGS) == ERROR) {
     goto refused;
   }
 
@@ -125,7 +127,7 @@ void clseConnection(int desc) {
   exit(EXIT_FAILURE);
 }
 
-EConStatus acceptDatagram(int desc, EConStatus status, ProcessDatagram success) {
+EConStatus acceptDatagram(int desc, EConStatus status, ProcessDatagram onAccept, ProcessDatagram onReceive, ProcessDatagram onClose) {
   disconnectSocket(desc); //Receive from everyone
   Datagram dgram = receiveDatagram(desc); //Respond only to sender
 
@@ -135,15 +137,17 @@ EConStatus acceptDatagram(int desc, EConStatus status, ProcessDatagram success) 
       status = NOT_CONNECTED;
     } else if (dgram.header.flags & FIN) {
       clseConnection(desc);
-      return NOT_CONNECTED;
+      onClose(dgram);
+      status = NOT_CONNECTED;
     } else if (dgram.header.flags & RST) {
       status = NOT_CONNECTED;
     } else {
-      success(dgram);
+      onReceive(dgram);
     }
   } else {
     if (dgram.header.flags & SYN) {
       acptConnection(desc);
+      onAccept(dgram);
       status = CONNECTED;
     } else {
       rfseConnection(desc);

@@ -9,6 +9,8 @@
 
 #define ERROR -1
 
+FILE* dataFile;
+
 int createSocket() {
   const int valid = 1;
   int desc = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -42,12 +44,33 @@ void bindSocket(int desc, Address addr) {
   }
 }
 
-Datagram readData() {
+FILE* openFile(char* filename) {
+  FILE *file = fopen(filename, "rb");
+  if (file == NULL) {
+    perror("Could not open file");
+    exit(EXIT_FAILURE);
+  }
+  return file;
+}
+
+Datagram readData(FILE* file) {
   Datagram dgram = {{0}};
   dgram.header.dataSize = fread(dgram.data, sizeof(uint8_t), SEGSIZE, stdin);
   return dgram;
 }
 
+void openDataFile(char* filename) {
+  dataFile = fopen(filename, "w+b");
+  if (dataFile == NULL) {
+    perror("Could not create file");
+    exit(EXIT_FAILURE);
+  }
+}
+
+void closeDataFile() {
+  fclose(dataFile);
+}
+
 void writeData(Datagram dgram) {
-  fwrite(dgram.data, sizeof(uint8_t), dgram.header.dataSize, stdout);
+  fwrite(dgram.data, sizeof(uint8_t), dgram.header.dataSize, dataFile);
 }

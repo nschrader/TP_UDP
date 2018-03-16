@@ -14,6 +14,6 @@ void tmntConnection(int desc);
 void acptConnection(int desc);
 void rfseConnection(int desc);
 void clseConnection(int desc);
-EConStatus acceptDatagram(int desc, EConStatus status, ProcessDatagram success);
+EConStatus acceptDatagram(int desc, EConStatus status, ProcessDatagram onAccept, ProcessDatagram onReceive)
 
 #endif
