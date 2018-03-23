@@ -11,8 +11,8 @@
 
 typedef struct {
   Address address;
-  char* filename;
-}
+  const char* filename;
+} Arguments;
 
 static Arguments getArguments(const int argc, const char *argv[]) {
   Arguments arguments;
@@ -41,13 +41,13 @@ static Arguments getArguments(const int argc, const char *argv[]) {
 
 int main(const int argc, const char *argv[]) {
   Arguments arguments = getArguments(argc, argv);
-  FILE* file = openFile(arguments.filename);
+  openInputFile(arguments.filename);
   int desc = createSocket();
   connectSocket(desc, arguments.address);
-  initConnection(desc);
+  initConnection(desc, arguments.filename);
 
-  while (!feof(stdin)) {
-    Datagram dgram = readData(file);
+  while (!eofInputFile()) {
+    Datagram dgram = readInputData();
     dgram.header.flags = NONE;
     dgram.header.segment = 0;
     dgram.header.acknowledgment = 0;
@@ -56,5 +56,6 @@ int main(const int argc, const char *argv[]) {
 
   tmntConnection(desc);
   close(desc);
+  closeInputFile();
   return EXIT_SUCCESS;
 }

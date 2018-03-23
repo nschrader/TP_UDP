@@ -33,9 +33,7 @@ int main(const int argc, const char *argv[]) {
   bindSocket(desc, addr);
 
   EConStatus status = NOT_CONNECTED;
-  while (true) {
-    status = acceptDatagram(desc, status, setDataPath, writeData);
-  }
+  while (acceptDatagram(desc, &status, openOutputFile, writeOutputData, closeOutputFile));
 
   close(desc);
   return EXIT_SUCCESS;

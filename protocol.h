@@ -2,6 +2,7 @@
 #define PROTOCOL_H
 
 #include "datagram.h"
+#include <stdbool.h>
 
 typedef enum {
   NOT_CONNECTED, CONNECTED
@@ -9,11 +10,11 @@ typedef enum {
 
 typedef void (*ProcessDatagram)(Datagram dgram);
 
-void initConnection(int desc);
+void initConnection(int desc, const char* filename);
 void tmntConnection(int desc);
 void acptConnection(int desc);
 void rfseConnection(int desc);
 void clseConnection(int desc);
-EConStatus acceptDatagram(int desc, EConStatus status, ProcessDatagram onAccept, ProcessDatagram onReceive)
+bool acceptDatagram(int desc, EConStatus* status, ProcessDatagram onAccept, ProcessDatagram onReceive, ProcessDatagram onClose);
 
 #endif

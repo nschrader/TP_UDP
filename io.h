@@ -1,7 +1,7 @@
 #ifndef IO_H
 #define IO_H
 
-#include <stdio.h>
+#include <stdbool.h>
 #include "datagram.h"
 
 #define ROOT_PORTS  1024
@@ -11,10 +11,13 @@ void connectSocket(int desc, Address addr);
 void disconnectSocket(int desc);
 void bindSocket(int desc, Address addr);
 
-FILE* openFile(char* filename)
-Datagram readData(FILE* file);
-void openDataFile(char* filename);
-void closeDataFile();
-void writeData(Datagram dgram);
+void openInputFile(const char* filename);
+Datagram readInputData();
+void closeInputFile();
+bool eofInputFile();
+
+void openOutputFile(Datagram dgram);
+void closeOutputFile(Datagram dgram);
+void writeOutputData(Datagram dgram);
 
 #endif

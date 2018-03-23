@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -11,11 +13,12 @@
 #define ERROR -1
 #define NO_FLAGS 0
 
-void initConnection(int desc, char* filename) {
+void initConnection(int desc, const char* filename) {
   Datagram syn = {{0}};
   syn.header.flags = SYN;
-  strncpy(syn.data, filename, SEGSIZE);
-  syn.data[SEGSIZE-1] = '\0';
+  strncpy((char*) syn.data, filename, SEGSIZE);
+  syn.header.dataSize = strlen((char*) syn.data);
+  stringifyDatagramData(&syn);
   if (send(desc, &syn, DGRAMSIZE(syn), NO_FLAGS) == ERROR) {
     goto refused;
   }
@@ -127,18 +130,20 @@ void clseConnection(int desc) {
   exit(EXIT_FAILURE);
 }
 
-EConStatus acceptDatagram(int desc, EConStatus status, ProcessDatagram onAccept, ProcessDatagram onReceive, ProcessDatagram onClose) {
+bool acceptDatagram(int desc, EConStatus *status, ProcessDatagram onAccept, ProcessDatagram onReceive, ProcessDatagram onClose) {
   disconnectSocket(desc); //Receive from everyone
   Datagram dgram = receiveDatagram(desc); //Respond only to sender
 
-  if (status == CONNECTED) {
+  bool open = true;
+  if (*status == CONNECTED) {
     if (dgram.header.flags & SYN) {
       rfseConnection(desc);
-      status = NOT_CONNECTED;
+      *status = NOT_CONNECTED;
     } else if (dgram.header.flags & FIN) {
       clseConnection(desc);
       onClose(dgram);
-      status = NOT_CONNECTED;
+      *status = NOT_CONNECTED;
+      open = false;
     } else if (dgram.header.flags & RST) {
       status = NOT_CONNECTED;
     } else {
@@ -148,11 +153,11 @@ EConStatus acceptDatagram(int desc, EConStatus status, ProcessDatagram onAccept,
     if (dgram.header.flags & SYN) {
       acptConnection(desc);
       onAccept(dgram);
-      status = CONNECTED;
+      *status = CONNECTED;
     } else {
       rfseConnection(desc);
     }
   }
 
-  return status;
+  return open;
 }

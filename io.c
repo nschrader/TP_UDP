@@ -3,13 +3,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
 #define ERROR -1
 
-FILE* dataFile;
+FILE* inputFile;
+FILE* outputFile;
 
 int createSocket() {
   const int valid = 1;
@@ -44,33 +47,42 @@ void bindSocket(int desc, Address addr) {
   }
 }
 
-FILE* openFile(char* filename) {
-  FILE *file = fopen(filename, "rb");
-  if (file == NULL) {
+void openInputFile(const char* filename) {
+  inputFile = fopen(filename, "rb");
+  if (inputFile == NULL) {
     perror("Could not open file");
     exit(EXIT_FAILURE);
   }
-  return file;
 }
 
-Datagram readData(FILE* file) {
+Datagram readInputData() {
   Datagram dgram = {{0}};
-  dgram.header.dataSize = fread(dgram.data, sizeof(uint8_t), SEGSIZE, stdin);
+  dgram.header.dataSize = fread(dgram.data, sizeof(uint8_t), SEGSIZE, inputFile);
   return dgram;
 }
 
-void openDataFile(char* filename) {
-  dataFile = fopen(filename, "w+b");
-  if (dataFile == NULL) {
+void closeInputFile() {
+  fclose(inputFile);
+}
+
+bool eofInputFile() {
+  return feof(inputFile);
+}
+
+void openOutputFile(Datagram dgram) {
+  stringifyDatagramData(&dgram);
+  char* filename = basename((char*) dgram.data);
+  outputFile = fopen(filename, "w+b");
+  if (outputFile == NULL) {
     perror("Could not create file");
     exit(EXIT_FAILURE);
   }
 }
 
-void closeDataFile() {
-  fclose(dataFile);
+void closeOutputFile(Datagram dgram) {
+  fclose(outputFile);
 }
 
-void writeData(Datagram dgram) {
-  fwrite(dgram.data, sizeof(uint8_t), dgram.header.dataSize, dataFile);
+void writeOutputData(Datagram dgram) {
+  fwrite(dgram.data, sizeof(uint8_t), dgram.header.dataSize, outputFile);
 }

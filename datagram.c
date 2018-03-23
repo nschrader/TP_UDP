@@ -29,3 +29,7 @@ void sendDatagram(int desc, Datagram dgram) {
     exit(EXIT_FAILURE);
   }
 }
+
+void stringifyDatagramData(Datagram* dgram) {
+  dgram->data[SEGSIZE-1] = '\0';
+}

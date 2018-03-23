@@ -34,5 +34,6 @@ typedef struct sockaddr_in Address;
 
 Datagram receiveDatagram(int desc);
 void sendDatagram(int desc, Datagram dgram);
+void stringifyDatagramData(Datagram* dgram);
 
 #endif

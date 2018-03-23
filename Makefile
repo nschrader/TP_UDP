@@ -1,5 +1,5 @@
 CC 			= gcc
-CFLAGS 	= -Wall -g
+CFLAGS 	= -Wall -g -D_GNU_SOURCE
 COMMON	= io.o protocol.o datagram.o
 HEADER	= ${COMMON.o:.h}
 
