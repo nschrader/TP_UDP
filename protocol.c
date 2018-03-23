@@ -79,12 +79,13 @@ void tmntConnection(int desc) {
   exit(EXIT_FAILURE);
 }
 
-void acptConnection(int desc) {
+void acptConnection(int desc, ConStatus* status) {
   DatagramHeader synAck = {0};
   synAck.flags = SYN | ACK;
   if (send(desc, &synAck, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
     goto error;
   }
+  status->segment = 1;
 
   Datagram ack;
   if (recv(desc, &ack, sizeof(Datagram), NO_FLAGS) == ERROR) {
@@ -93,6 +94,8 @@ void acptConnection(int desc) {
   if (ack.header.flags != ACK) {
     goto error;
   }
+  status->acknowledgment = 1;
+  status->connected = true;
 
   return;
   error:
@@ -130,34 +133,49 @@ void clseConnection(int desc) {
   exit(EXIT_FAILURE);
 }
 
-bool acceptDatagram(int desc, EConStatus *status, ProcessDatagram onAccept, ProcessDatagram onReceive, ProcessDatagram onClose) {
+void acknConnection(int desc, uint32_t sequence) {
+  DatagramHeader ack = {0};
+  ack.flags = ACK;
+  ack.sequence = sequence;
+  if (send(desc, &ack, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
+    perror("Could not acknowledge");
+    exit(EXIT_FAILURE);
+  }
+}
+
+bool lstnConnection(int desc, ConStatus *status, ProcessDatagram onAccept, ProcessDatagram onReceive, ProcessDatagram onClose) {
   disconnectSocket(desc); //Receive from everyone
   Datagram dgram = receiveDatagram(desc); //Respond only to sender
 
-  bool open = true;
-  if (*status == CONNECTED) {
+  bool closed = false;
+  if (status->connected) {
     if (dgram.header.flags & SYN) {
       rfseConnection(desc);
-      *status = NOT_CONNECTED;
+      status->connected = false;
     } else if (dgram.header.flags & FIN) {
       clseConnection(desc);
       onClose(dgram);
-      *status = NOT_CONNECTED;
-      open = false;
+      status->connected = false;
+      closed = true;
     } else if (dgram.header.flags & RST) {
-      status = NOT_CONNECTED;
+      status->connected = false;
+    } else if (dgram.header.sequence == status->sequence + dgram.header.dataSize) {
+      do { //First iteration won't modify dgram
+        onReceive(dgram);
+        status->sequence + dgram.header.dataSize;
+        acknConnection(desc, status->sequence);
+      } while (pullSegment(&dgram, status->sequence));
     } else {
-      onReceive(dgram);
+      pushSegment(dgram);
     }
   } else {
     if (dgram.header.flags & SYN) {
-      acptConnection(desc);
+      acptConnection(desc, status);
       onAccept(dgram);
-      *status = CONNECTED;
     } else {
       rfseConnection(desc);
     }
   }
 
-  return open;
+  return !closed;
 }

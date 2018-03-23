@@ -46,10 +46,12 @@ int main(const int argc, const char *argv[]) {
   connectSocket(desc, arguments.address);
   initConnection(desc, arguments.filename);
 
+  uint32_t sequence = 0;
   while (!eofInputFile()) {
     Datagram dgram = readInputData();
+    sequence += dgram.header.dataSize;
     dgram.header.flags = NONE;
-    dgram.header.segment = 0;
+    dgram.header.sequence = sequence;
     dgram.header.acknowledgment = 0;
     sendDatagram(desc, dgram);
   }

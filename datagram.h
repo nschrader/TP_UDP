@@ -9,6 +9,7 @@
 #define IPSIZE 32
 #define UDPSIZE 8
 #define GCC_PACKED __attribute__((packed))
+#define MAXSEQUENCE UINT32_MAX
 
 typedef enum GCC_PACKED {
   NONE = 0, SYN = 2, RST = 4, ACK = 8, FIN = 16
@@ -16,7 +17,7 @@ typedef enum GCC_PACKED {
 
 typedef struct GCC_PACKED {
   EDatagramFlags flags;
-  uint32_t segment;
+  uint32_t sequence;
   uint32_t acknowledgment;
   uint16_t dataSize;
 } DatagramHeader;

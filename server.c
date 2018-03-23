@@ -32,7 +32,7 @@ int main(const int argc, const char *argv[]) {
   int desc = createSocket();
   bindSocket(desc, addr);
 
-  EConStatus status = NOT_CONNECTED;
+  ConStatus status = {0};
   while (acceptDatagram(desc, &status, openOutputFile, writeOutputData, closeOutputFile));
 
   close(desc);
