@@ -24,7 +24,7 @@ typedef struct GCC_PACKED {
 
 #define HEADERSIZE (sizeof(DatagramHeader))
 #define SEGSIZE (MTU-IPSIZE-UDPSIZE-HEADERSIZE)
-#define DGRAMSIZE(d) (sizeof(uint8_t)*d.header.dataSize + HEADERSIZE)
+#define DGRAMSIZE(d) (sizeof(uint8_t)*(d).header.dataSize + HEADERSIZE)
 
 typedef struct GCC_PACKED {
   DatagramHeader header;
@@ -34,7 +34,7 @@ typedef struct GCC_PACKED {
 typedef struct sockaddr_in Address;
 
 Datagram receiveDatagram(int desc);
-void sendDatagram(int desc, Datagram dgram);
+void sendDatagram(int desc, const Datagram* dgram);
 void stringifyDatagramData(Datagram* dgram);
 
 #endif

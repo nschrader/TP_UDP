@@ -23,8 +23,8 @@ Datagram receiveDatagram(int desc) {
   return dgram;
 }
 
-void sendDatagram(int desc, Datagram dgram) {
-  if (send(desc, &dgram, DGRAMSIZE(dgram), NO_FLAGS) == ERROR) {
+void sendDatagram(int desc, const Datagram* dgram) {
+  if (send(desc, dgram, DGRAMSIZE(*dgram), NO_FLAGS) == ERROR) {
     perror("Could not send datagram");
     exit(EXIT_FAILURE);
   }

@@ -1,6 +1,7 @@
 #include "io.h"
 #include "datagram.h"
 #include "protocol.h"
+#include "con_status.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,11 +31,12 @@ Address getArguments(const int argc, const char *argv[]) {
 int main(const int argc, const char *argv[]) {
   Address addr = getArguments(argc, argv);
   int desc = createSocket();
-  bindSocket(desc, addr);
+  bindSocket(desc, &addr);
 
-  ConStatus status = {0};
-  while (acceptDatagram(desc, &status, openOutputFile, writeOutputData, closeOutputFile));
+  ConStatus* status = newConStatus();
+  while (lstnConnection(desc, status, openOutputFile, writeOutputData, closeOutputFile));
 
   close(desc);
+  freeConStatus(status);
   return EXIT_SUCCESS;
 }

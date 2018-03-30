@@ -1,6 +1,7 @@
 #include "protocol.h"
 #include "io.h"
 #include "datagram.h"
+#include "con_status.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +13,14 @@
 
 #define ERROR -1
 #define NO_FLAGS 0
+
+static void fatalTransmissionError(const char* msg) {
+  if (!errno) {
+    errno = ECONNREFUSED;
+  }
+  perror(msg);
+  exit(EXIT_FAILURE);
+}
 
 void initConnection(int desc, const char* filename) {
   Datagram syn = {{0}};
@@ -42,11 +51,7 @@ void initConnection(int desc, const char* filename) {
 
   return;
   refused:
-  if (!errno) {
-    errno = ECONNREFUSED;
-  }
-  perror("Could not handshake");
-  exit(EXIT_FAILURE);
+  fatalTransmissionError("Could not handshake");
 }
 
 void tmntConnection(int desc) {
@@ -75,8 +80,7 @@ void tmntConnection(int desc) {
 
   return;
   error:
-  perror("Could not handshake");
-  exit(EXIT_FAILURE);
+  fatalTransmissionError("Could not handshake");
 }
 
 void acptConnection(int desc, ConStatus* status) {
@@ -85,7 +89,7 @@ void acptConnection(int desc, ConStatus* status) {
   if (send(desc, &synAck, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
     goto error;
   }
-  status->segment = 1;
+  status->sequence = 0;
 
   Datagram ack;
   if (recv(desc, &ack, sizeof(Datagram), NO_FLAGS) == ERROR) {
@@ -94,21 +98,19 @@ void acptConnection(int desc, ConStatus* status) {
   if (ack.header.flags != ACK) {
     goto error;
   }
-  status->acknowledgment = 1;
+  status->acknowledgment = 0;
   status->connected = true;
 
   return;
   error:
-  perror("Could not handshake");
-  exit(EXIT_FAILURE);
+  fatalTransmissionError("Could not handshake");
 }
 
 void rfseConnection(int desc) {
   DatagramHeader rst = {0};
   rst.flags = RST;
   if (send(desc, &rst, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
-    perror("Could not reset connection");
-    exit(EXIT_FAILURE);
+    fatalTransmissionError("Could not reset connection");
   }
 }
 
@@ -129,17 +131,18 @@ void clseConnection(int desc) {
 
   return;
   error:
-  perror("Could not handshake");
-  exit(EXIT_FAILURE);
+  if (!errno) {
+    errno = ECONNREFUSED;
+  }
+  fatalTransmissionError("Could not handshake");
 }
 
-void acknConnection(int desc, uint32_t sequence) {
+void acknConnection(int desc, ConStatus* status) {
   DatagramHeader ack = {0};
   ack.flags = ACK;
-  ack.sequence = sequence;
+  ack.sequence = status->sequence;
   if (send(desc, &ack, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
-    perror("Could not acknowledge");
-    exit(EXIT_FAILURE);
+    fatalTransmissionError("Could not acknowledge");
   }
 }
 
@@ -154,24 +157,25 @@ bool lstnConnection(int desc, ConStatus *status, ProcessDatagram onAccept, Proce
       status->connected = false;
     } else if (dgram.header.flags & FIN) {
       clseConnection(desc);
-      onClose(dgram);
+      onClose(&dgram);
       status->connected = false;
       closed = true;
     } else if (dgram.header.flags & RST) {
       status->connected = false;
-    } else if (dgram.header.sequence == status->sequence + dgram.header.dataSize) {
+    } else if (dgram.header.sequence == status->sequence) {
       do { //First iteration won't modify dgram
-        onReceive(dgram);
-        status->sequence + dgram.header.dataSize;
-        acknConnection(desc, status->sequence);
-      } while (pullSegment(&dgram, status->sequence));
+        onReceive(&dgram);
+        status->sequence += dgram.header.dataSize;
+        //acknConnection(desc, status);
+        dgram = pullSegment(status);
+      } while (dgram.header.sequence); //Will be zero if segment not found
     } else {
-      pushSegment(dgram);
+      pushSegment(status, &dgram);
     }
   } else {
     if (dgram.header.flags & SYN) {
       acptConnection(desc, status);
-      onAccept(dgram);
+      onAccept(&dgram);
     } else {
       rfseConnection(desc);
     }

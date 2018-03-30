@@ -7,17 +7,17 @@
 #define ROOT_PORTS  1024
 
 int createSocket();
-void connectSocket(int desc, Address addr);
+void connectSocket(int desc, const Address* addr);
 void disconnectSocket(int desc);
-void bindSocket(int desc, Address addr);
+void bindSocket(int desc, const Address* addr);
 
 void openInputFile(const char* filename);
 Datagram readInputData();
 void closeInputFile();
 bool eofInputFile();
 
-void openOutputFile(Datagram dgram);
-void closeOutputFile(Datagram dgram);
-void writeOutputData(Datagram dgram);
+void openOutputFile(Datagram* dgram);
+void closeOutputFile(Datagram* dgram);
+void writeOutputData(Datagram* dgram);
 
 #endif

@@ -25,8 +25,8 @@ int createSocket() {
   return desc;
 }
 
-void connectSocket(int desc, Address addr) {
-  if (connect(desc, (struct sockaddr*) &addr, sizeof(addr)) == ERROR) {
+void connectSocket(int desc, const Address* addr) {
+  if (connect(desc, (struct sockaddr*) addr, sizeof(*addr)) == ERROR) {
     perror("Could not connect");
     close(desc);
     exit(EXIT_FAILURE);
@@ -36,11 +36,11 @@ void connectSocket(int desc, Address addr) {
 void disconnectSocket(int desc) {
   Address addr;
   addr.sin_family = AF_UNSPEC;
-  connectSocket(desc, addr);
+  connectSocket(desc, &addr);
 }
 
-void bindSocket(int desc, Address addr) {
-  if (bind(desc, (struct sockaddr*) &addr, sizeof(addr)) == ERROR) {
+void bindSocket(int desc, const Address* addr) {
+  if (bind(desc, (struct sockaddr*) addr, sizeof(*addr)) == ERROR) {
     perror("Could not bind");
     close(desc);
     exit(EXIT_FAILURE);
@@ -69,9 +69,9 @@ bool eofInputFile() {
   return feof(inputFile);
 }
 
-void openOutputFile(Datagram dgram) {
-  stringifyDatagramData(&dgram);
-  char* filename = basename((char*) dgram.data);
+void openOutputFile(Datagram* dgram) {
+  stringifyDatagramData(dgram);
+  char* filename = basename((char*) dgram->data);
   outputFile = fopen(filename, "w+b");
   if (outputFile == NULL) {
     perror("Could not create file");
@@ -79,10 +79,10 @@ void openOutputFile(Datagram dgram) {
   }
 }
 
-void closeOutputFile(Datagram dgram) {
+void closeOutputFile(Datagram* dgram) {
   fclose(outputFile);
 }
 
-void writeOutputData(Datagram dgram) {
-  fwrite(dgram.data, sizeof(uint8_t), dgram.header.dataSize, outputFile);
+void writeOutputData(Datagram* dgram) {
+  fwrite(dgram->data, sizeof(uint8_t), dgram->header.dataSize, outputFile);
 }
