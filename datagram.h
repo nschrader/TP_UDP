@@ -1,9 +1,7 @@
 #ifndef DATAGRAM_H
 #define DATAGRAM_H
 
-#include <stdint.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include "libs.h"
 
 #define MTU 1500
 #define IPSIZE 32
@@ -17,24 +15,24 @@ typedef enum GCC_PACKED {
 
 typedef struct GCC_PACKED {
   EDatagramFlags flags;
-  uint32_t sequence;
-  uint32_t acknowledgment;
-  uint16_t dataSize;
+  guint32 sequence;
+  guint32 acknowledgment;
+  guint16 dataSize;
 } DatagramHeader;
 
 #define HEADERSIZE (sizeof(DatagramHeader))
 #define SEGSIZE (MTU-IPSIZE-UDPSIZE-HEADERSIZE)
-#define DGRAMSIZE(d) (sizeof(uint8_t)*(d).header.dataSize + HEADERSIZE)
+#define DGRAMSIZE(d) (sizeof(guint8)*(d).header.dataSize + HEADERSIZE)
 
 typedef struct GCC_PACKED {
   DatagramHeader header;
-  uint8_t data[SEGSIZE];
+  guint8 data[SEGSIZE];
 } Datagram;
 
 typedef struct sockaddr_in Address;
 
-Datagram receiveDatagram(int desc);
-void sendDatagram(int desc, const Datagram* dgram);
+Datagram receiveDatagram(gint desc);
+void sendDatagram(gint desc, const Datagram* dgram);
 void stringifyDatagramData(Datagram* dgram);
 
 #endif

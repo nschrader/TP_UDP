@@ -3,18 +3,19 @@
 
 #include "datagram.h"
 #include "con_status.h"
+#include "libs.h"
 
 typedef void (*ProcessDatagram)(Datagram* dgram);
 
 //Client routines
-void initConnection(int desc, const char* filename);
-void tmntConnection(int desc);
-void rfseConnection(int desc);
-void clseConnection(int desc);
+void initConnection(gint desc, const gchar* filename);
+void tmntConnection(gint desc);
+void rfseConnection(gint desc);
+void clseConnection(gint desc);
 
 //Server routines
-void acptConnection(int desc, ConStatus* status);
-void acknConnection(int desc, ConStatus* status);
-bool lstnConnection(int desc, ConStatus* status, ProcessDatagram onAccept, ProcessDatagram onReceive, ProcessDatagram onClose);
+void acptConnection(gint desc, ConStatus* status);
+void acknConnection(gint desc, ConStatus* status);
+gboolean lstnConnection(gint desc, ConStatus* status, ProcessDatagram onAccept, ProcessDatagram onReceive, ProcessDatagram onClose);
 
 #endif

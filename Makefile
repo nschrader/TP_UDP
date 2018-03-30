@@ -1,5 +1,5 @@
 CC 			= gcc
-CFLAGS 	= -Wall -g -D_GNU_SOURCE ${shell pkg-config --cflags glib-2.0}
+CFLAGS 	= -Wall -g ${shell pkg-config --cflags glib-2.0}
 LFLAGS	= -g ${shell pkg-config --libs glib-2.0}
 COMMON	= io.o protocol.o datagram.o con_status.o
 HEADER	= ${COMMON.o:.h}

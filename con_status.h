@@ -2,15 +2,12 @@
 #define CON_STATUS_H
 
 #include "datagram.h"
-
-#include <stdbool.h>
-#include <stdint.h>
-#include <gmodule.h>
+#include "libs.h"
 
 typedef struct {
-  bool connected;
-  uint32_t sequence;
-  uint32_t acknowledgment;
+  gboolean connected;
+  guint32 sequence;
+  guint32 acknowledgment;
   GQueue* stack;
 } ConStatus;
 
