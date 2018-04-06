@@ -1,8 +1,9 @@
 #include "io.h"
 #include "datagram.h"
 #include "protocol.h"
-#include "con_status.h"
 #include "libs.h"
+
+#define CHILD 0
 
 Address getArguments(const gint argc, const gchar *argv[]) {
   Address addr;
@@ -25,14 +26,29 @@ Address getArguments(const gint argc, const gchar *argv[]) {
 }
 
 gint main(const gint argc, const gchar *argv[]) {
-  Address addr = getArguments(argc, argv);
-  gint desc = createSocket();
-  bindSocket(desc, &addr);
+  Address publicAddr = getArguments(argc, argv);
+  gint publicDesc = createSocket();
+  bindSocket(publicDesc, &publicAddr);
 
-  ConStatus* status = newConStatus();
-  while (lstnConnection(desc, status, openOutputFile, writeOutputData, closeOutputFile));
+  Address privateAddr;
+  do {
+    privateAddr = acptConnection(publicDesc);
+  } while (fork() != CHILD);
+  gint privateDesc = createSocket();
+  bindSocket(privateDesc, &privateAddr);
 
-  close(desc);
-  freeConStatus(status);
+  Datagram inputFileNameDgram = receiveDatagram(privateDesc);
+  gchar* inputFileName = stringifyDatagramData(&inputFileNameDgram);
+  FILE* inputFile = fopen(inputFileName, "rb");
+  if (inputFile != NULL) {
+    perror("here at sendConnection");
+    sendConnection(inputFile, privateDesc);
+  } else {
+    g_printf("File %s asked for not found: %s", inputFileName, strerror(errno));
+  }
+  tmntConnection(privateDesc);
+
+  close(privateDesc);
+  fclose(inputFile);
   return EXIT_SUCCESS;
 }

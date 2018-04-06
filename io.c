@@ -40,42 +40,8 @@ void bindSocket(gint desc, const Address* addr) {
   }
 }
 
-void openInputFile(const gchar* filename) {
-  inputFile = fopen(filename, "rb");
-  if (inputFile == NULL) {
-    perror("Could not open file");
-    exit(EXIT_FAILURE);
-  }
-}
-
 Datagram readInputData() {
-  Datagram dgram = {{0}};
-  dgram.header.dataSize = fread(dgram.data, sizeof(guint8), SEGSIZE, inputFile);
+  Datagram dgram = {0};
+  dgram.size = fread(dgram.segment.data, sizeof(guint8), sizeof(dgram.segment.data), inputFile);
   return dgram;
-}
-
-void closeInputFile() {
-  fclose(inputFile);
-}
-
-gboolean eofInputFile() {
-  return feof(inputFile);
-}
-
-void openOutputFile(Datagram* dgram) {
-  stringifyDatagramData(dgram);
-  gchar* filename = basename((gchar*) dgram->data);
-  outputFile = fopen(filename, "w+b");
-  if (outputFile == NULL) {
-    perror("Could not create file");
-    exit(EXIT_FAILURE);
-  }
-}
-
-void closeOutputFile(Datagram* dgram) {
-  fclose(outputFile);
-}
-
-void writeOutputData(Datagram* dgram) {
-  fwrite(dgram->data, sizeof(guint8), dgram->header.dataSize, outputFile);
 }
