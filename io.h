@@ -6,10 +6,12 @@
 
 #define ROOT_PORTS  1024
 
+#define alert(fmt, ...) g_printf("[%d] " fmt "\n", getpid(), ##__VA_ARGS__)
+
 gint createSocket();
 void connectSocket(gint desc, const Address* addr);
-void disconnectSocket(gint desc);
 void bindSocket(gint desc, const Address* addr);
+void getNameFromSocket(gint desc, const Address* addr);
 
 Datagram readInputData(FILE *inputFile);
 

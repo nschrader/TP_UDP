@@ -30,13 +30,10 @@ gint main(const gint argc, const gchar *argv[]) {
   gint publicDesc = createSocket();
   bindSocket(publicDesc, &publicAddr);
 
-  Address privateAddr;
-  //TODO: Bind to socket before fork
-  //do {
-    privateAddr = acptConnection(publicDesc);
-  //} while (fork() != CHILD);
-  gint privateDesc = createSocket();
-  bindSocket(privateDesc, &privateAddr);
+  gint privateDesc;
+  do {
+    privateDesc = acptConnection(publicDesc);
+  } while (fork() != CHILD);
 
   Datagram inputFileNameDgram = receivePureData(privateDesc);
   gchar* inputFileName = stringifyDatagramData(&inputFileNameDgram);
@@ -44,8 +41,9 @@ gint main(const gint argc, const gchar *argv[]) {
   if (inputFile != NULL) {
     sendConnection(inputFile, privateDesc);
   } else {
-    g_printf("File %s asked for not found: %s", inputFileName, strerror(errno));
+    alert("File %s asked for not found: %s", inputFileName, strerror(errno));
   }
+
   tmntConnection(privateDesc);
 
   close(privateDesc);

@@ -9,7 +9,7 @@
 #define FIRSTSEQ 000001
 
 void tmntConnection(gint desc);
-Address acptConnection(gint desc);
+gint acptConnection(gint publicDesc);
 void sendConnection(FILE* inputFile, gint desc);
 
 #endif

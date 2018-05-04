@@ -23,19 +23,17 @@ void connectSocket(gint desc, const Address* addr) {
   }
 }
 
-//TODO: Remove when not used
-/*void disconnectSocket(gint desc) {
-  Address addr;
-  addr.sin_family = AF_UNSPEC;
-  connectSocket(desc, &addr);
-}*/
-
 void bindSocket(gint desc, const Address* addr) {
   if (bind(desc, (struct sockaddr*) addr, sizeof(*addr)) == ERROR) {
     perror("Could not bind");
     close(desc);
     exit(EXIT_FAILURE);
   }
+}
+
+void getNameFromSocket(gint desc, const Address* addr) {
+  socklen_t size = sizeof(*addr);
+  getsockname(desc, (struct sockaddr*) addr, &size);
 }
 
 Datagram readInputData(FILE *inputFile) {

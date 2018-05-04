@@ -20,49 +20,55 @@ void tmntConnection(gint desc) {
   if (send(desc, finBuf, sizeof(finBuf), NO_FLAGS) == ERROR) {
     fatalTransmissionError("Could not handshake");
   }
+
+  Address addr;
+  getNameFromSocket(desc, &addr);
+  alert("Terminated connection to %s", inet_ntoa(addr.sin_addr));
 }
 
-Address acptConnection(gint desc) {
-  //TODO: Get first free port from bind
+gint acptConnection(gint publicDesc) {
   srand(time(NULL));
   gint port = BASEPORT + rand() % PORTRANGE;
+
+  Address privateAddr;
+  gint privateDesc = createSocket();
+  privateAddr.sin_family = AF_INET;
+  privateAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  privateAddr.sin_port = htons(port);
+  bindSocket(privateDesc, &privateAddr);
 
   gchar synBuf[8];
   Address source;
   struct sockaddr* src = (struct sockaddr*) &source;
   socklen_t len = sizeof(Address);
-  if (recvfrom(desc, synBuf, sizeof(synBuf), NO_FLAGS, src, &len) == ERROR) {
+  if (recvfrom(publicDesc, synBuf, sizeof(synBuf), NO_FLAGS, src, &len) == ERROR) {
     goto error;
   }
+  alert("Got connection from %s", inet_ntoa(source.sin_addr));
   if (strncmp("SYN", synBuf, 3) != EQUALS) {
     goto error;
   }
 
   gchar synAckBuf[16] = "SYN-ACK0000";
   g_snprintf(&synAckBuf[7], 5, "%04d", port);
-  if (sendto(desc, synAckBuf, sizeof(synAckBuf), NO_FLAGS, src, len) == ERROR) {
+  if (sendto(publicDesc, synAckBuf, sizeof(synAckBuf), NO_FLAGS, src, len) == ERROR) {
     goto error;
   }
 
   gchar ackBuf[8];
-  if (recvfrom(desc, ackBuf, sizeof(ackBuf), NO_FLAGS, src, &len) == ERROR) {
+  if (recvfrom(publicDesc, ackBuf, sizeof(ackBuf), NO_FLAGS, src, &len) == ERROR) {
     goto error;
   }
   if (strncmp("ACK", ackBuf, 3) != EQUALS) {
     goto error;
   }
 
-  Address addr;
-  addr.sin_family = AF_INET;
-  addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  addr.sin_port = htons(port);
-  //TODO: Might be waste
-  //disconnectSocket(desc);
-  return addr;
+  alert("Assigned data port %d to %s", port, inet_ntoa(source.sin_addr));
+  return privateDesc;
 
   error:
   fatalTransmissionError("Could not handshake");
-  return addr;
+  return 0;
 }
 
 void sendConnection(FILE* inputFile, gint desc) {
@@ -71,10 +77,7 @@ void sendConnection(FILE* inputFile, gint desc) {
     Datagram dgram = readInputData(inputFile);
     setDatagramSequence(&dgram, sequence);
     sendDatagram(desc, &dgram);
-    //TODO: Remove
-    g_printf("Send seq %s\n", dgram.segment.sequence);
+    alert("Send seq %s", dgram.segment.sequence);
     sequence++;
-    //TODO: Remove
-    g_usleep(10);
   }
 }
