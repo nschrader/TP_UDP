@@ -11,6 +11,6 @@ void connectSocket(gint desc, const Address* addr);
 void disconnectSocket(gint desc);
 void bindSocket(gint desc, const Address* addr);
 
-Datagram readInputData();
+Datagram readInputData(FILE *inputFile);
 
 #endif

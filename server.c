@@ -31,17 +31,17 @@ gint main(const gint argc, const gchar *argv[]) {
   bindSocket(publicDesc, &publicAddr);
 
   Address privateAddr;
-  do {
+  //TODO: Bind to socket before fork
+  //do {
     privateAddr = acptConnection(publicDesc);
-  } while (fork() != CHILD);
+  //} while (fork() != CHILD);
   gint privateDesc = createSocket();
   bindSocket(privateDesc, &privateAddr);
 
-  Datagram inputFileNameDgram = receiveDatagram(privateDesc);
+  Datagram inputFileNameDgram = receivePureData(privateDesc);
   gchar* inputFileName = stringifyDatagramData(&inputFileNameDgram);
   FILE* inputFile = fopen(inputFileName, "rb");
   if (inputFile != NULL) {
-    perror("here at sendConnection");
     sendConnection(inputFile, privateDesc);
   } else {
     g_printf("File %s asked for not found: %s", inputFileName, strerror(errno));

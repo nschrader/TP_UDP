@@ -3,15 +3,14 @@
 
 #include "libs.h"
 
-
 #define GCC_PACKED __attribute__((packed))
-#define BYTESIZE 8
-#define HEADERSIZE 6
 #define SEGSIZE 1500
+#define SEQSIZE 6
+#define SEQFORMAT "%05d"
 
 typedef struct GCC_PACKED {
-  guint64 sequence: HEADERSIZE*BYTESIZE;
-  guint8 data[SEGSIZE-HEADERSIZE];
+  gchar sequence[SEQSIZE];
+  guint8 data[SEGSIZE-SEQSIZE];
 } DatagramSegment;
 
 typedef struct {
@@ -22,7 +21,9 @@ typedef struct {
 typedef struct sockaddr_in Address;
 
 Datagram receiveDatagram(gint desc);
+Datagram receivePureData(gint desc);
 void sendDatagram(gint desc, const Datagram* dgram);
 gchar* stringifyDatagramData(Datagram* dgram);
+void setDatagramSequence(Datagram* dgram, gint sequence);
 
 #endif

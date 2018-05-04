@@ -4,9 +4,6 @@
 
 #define ERROR -1
 
-FILE* inputFile;
-FILE* outputFile;
-
 gint createSocket() {
   const gint valid = 1;
   gint desc = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -26,11 +23,12 @@ void connectSocket(gint desc, const Address* addr) {
   }
 }
 
-void disconnectSocket(gint desc) {
+//TODO: Remove when not used
+/*void disconnectSocket(gint desc) {
   Address addr;
   addr.sin_family = AF_UNSPEC;
   connectSocket(desc, &addr);
-}
+}*/
 
 void bindSocket(gint desc, const Address* addr) {
   if (bind(desc, (struct sockaddr*) addr, sizeof(*addr)) == ERROR) {
@@ -40,8 +38,9 @@ void bindSocket(gint desc, const Address* addr) {
   }
 }
 
-Datagram readInputData() {
+Datagram readInputData(FILE *inputFile) {
   Datagram dgram = {0};
-  dgram.size = fread(dgram.segment.data, sizeof(guint8), sizeof(dgram.segment.data), inputFile);
+  dgram.size = fread(&dgram.segment.data, sizeof(guint8), sizeof(dgram.segment.data), inputFile);
+  dgram.size += SEQSIZE;
   return dgram;
 }

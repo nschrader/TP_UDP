@@ -28,7 +28,10 @@ Address acptConnection(gint desc) {
   gint port = BASEPORT + rand() % PORTRANGE;
 
   gchar synBuf[8];
-  if (recv(desc, synBuf, sizeof(synBuf), NO_FLAGS) == ERROR) {
+  Address source;
+  struct sockaddr* src = (struct sockaddr*) &source;
+  socklen_t len = sizeof(Address);
+  if (recvfrom(desc, synBuf, sizeof(synBuf), NO_FLAGS, src, &len) == ERROR) {
     goto error;
   }
   if (strncmp("SYN", synBuf, 3) != EQUALS) {
@@ -37,12 +40,12 @@ Address acptConnection(gint desc) {
 
   gchar synAckBuf[16] = "SYN-ACK0000";
   g_snprintf(&synAckBuf[7], 5, "%04d", port);
-  if (send(desc, synAckBuf, sizeof(synAckBuf), NO_FLAGS) == ERROR) {
+  if (sendto(desc, synAckBuf, sizeof(synAckBuf), NO_FLAGS, src, len) == ERROR) {
     goto error;
   }
 
   gchar ackBuf[8];
-  if (recv(desc, ackBuf, sizeof(ackBuf), NO_FLAGS) == ERROR) {
+  if (recvfrom(desc, ackBuf, sizeof(ackBuf), NO_FLAGS, src, &len) == ERROR) {
     goto error;
   }
   if (strncmp("ACK", ackBuf, 3) != EQUALS) {
@@ -53,7 +56,8 @@ Address acptConnection(gint desc) {
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = htonl(INADDR_ANY);
   addr.sin_port = htons(port);
-  disconnectSocket(desc);
+  //TODO: Might be waste
+  //disconnectSocket(desc);
   return addr;
 
   error:
@@ -61,24 +65,16 @@ Address acptConnection(gint desc) {
   return addr;
 }
 
-/*TODO: void acknConnection(gint desc, ConStatus* status) {
-  DatagramHeader ack = {0};
-  ack.flags = ACK;
-  ack.sequence = status->sequence;
-  if (send(desc, &ack, sizeof(DatagramHeader), NO_FLAGS) == ERROR) {
-    fatalTransmissionError("Could not acknowledge");
-  }
-}*/
-
 void sendConnection(FILE* inputFile, gint desc) {
-  volatile guint32 sequence = 0;
-  /*TODO: while (!eofInputFile()) {
-    Datagram dgram = readInputData();
-    dgram.header.flags = NONE;
-    dgram.header.sequence = sequence;
-    dgram.header.acknowledgment = 0;
+  gint sequence = FIRSTSEQ;
+  while (!feof(inputFile)) {
+    Datagram dgram = readInputData(inputFile);
+    setDatagramSequence(&dgram, sequence);
     sendDatagram(desc, &dgram);
-    sequence += dgram.header.dataSize;
+    //TODO: Remove
+    g_printf("Send seq %s\n", dgram.segment.sequence);
+    sequence++;
+    //TODO: Remove
     g_usleep(10);
-  }*/
+  }
 }
