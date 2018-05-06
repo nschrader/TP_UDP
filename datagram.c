@@ -8,18 +8,13 @@
 
 Datagram receiveData(gint desc) {
   Datagram dgram = {0};
-  Address source;
-  struct sockaddr* src = (struct sockaddr*) &source;
-  socklen_t len = sizeof(Address);
 
-  dgram.size = recvfrom(desc, &dgram.segment.data, sizeof(DatagramSegment), NO_FLAGS, src, &len);
+  dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), NO_FLAGS);
   if (dgram.size == ERROR) {
     perror("Could not receive datagram");
     exit(EXIT_FAILURE);
   }
 
-  // We need to answer, disconnect when done
-  connectSocket(desc, &source);
   return dgram;
 }
 
