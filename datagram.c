@@ -31,7 +31,7 @@ GList* receiveACK(GList* acks, guint desc) {
     if (dgram.size == ERROR) {
       break;
     }
-
+		
     gint ack;
     if (sscanf((gchar*) &dgram.segment.data, "ACK%06d", &ack) == ONE_MATCH) {
       acks = g_list_append(acks, GINT_TO_POINTER(ack));
@@ -55,6 +55,18 @@ void sendDatagram(gint desc, const Datagram* dgram) {
     exit(EXIT_FAILURE);
   }
 }
+
+gint estimateRTT (gint estimatedRTT, GList* acks, GHashTable* seqs){
+	gint seqNum = GPOINTER_TO_INT(g_list_last(acks)->data);
+	guint seqTime = GPOINTER_TO_UINT(g_hash_table_lookup (seqs, GINT_TO_POINTER(seqNum)));
+	gint sampleTime = g_get_monotonic_time() - seqTime;
+	if (estimatedRTT == 0){
+		return sampleTime;
+	}
+	gint RTT = 0.875 * estimatedRTT + 0.125 * sampleTime;
+	return RTT;
+}
+	
 
 gchar* stringifyDatagramData(Datagram* dgram) {
   dgram->segment.data[sizeof(dgram->segment.data)] = '\0';

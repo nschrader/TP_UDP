@@ -25,5 +25,6 @@ GList* receiveACK(GList* acks, guint desc);
 void sendDatagram(gint desc, const Datagram* dgram);
 gchar* stringifyDatagramData(Datagram* dgram);
 void setDatagramSequence(Datagram* dgram, gint sequence);
+gint estimateRTT (gint estimatedRTT, GList* acks, GHashTable* seqs);
 
 #endif

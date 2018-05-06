@@ -84,10 +84,16 @@ void sendConnection(FILE* inputFile, gint desc) {
   gint sequence = FIRSTSEQ;
   GList* acks = NULL;
   GHashTable* seqs = g_hash_table_new(g_direct_hash, g_direct_equal);
+	gint RTT = 0;
 
   while (!feof(inputFile)) {
     acks = receiveACK(acks, desc);
     usleep(100000); //Otherwise we quit so fast that we won't even receive
+		
+		if (acks != NULL) {
+			RTT = estimateRTT(RTT, acks, seqs);  		
+			alert("%d", RTT);
+		}
 
     Datagram dgram = readInputData(inputFile);
     setDatagramSequence(&dgram, sequence);
