@@ -35,7 +35,7 @@ gint main(const gint argc, const gchar *argv[]) {
     privateDesc = acptConnection(publicDesc);
   } while (fork() != CHILD);
 
-  Datagram inputFileNameDgram = receivePureData(privateDesc);
+  Datagram inputFileNameDgram = receiveData(privateDesc);
   gchar* inputFileName = stringifyDatagramData(&inputFileNameDgram);
   FILE* inputFile = fopen(inputFileName, "rb");
   if (inputFile != NULL) {

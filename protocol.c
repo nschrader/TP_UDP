@@ -74,6 +74,16 @@ gint acptConnection(gint publicDesc) {
 void sendConnection(FILE* inputFile, gint desc) {
   gint sequence = FIRSTSEQ;
   while (!feof(inputFile)) {
+    GList* acks = receiveACK(desc);
+
+    GList* next = acks;
+    while (next != NULL) {
+      alert("Got ACK no %d", GPOINTER_TO_INT(next->data));
+      next = next->next;
+    }
+    usleep(100000); //Otherwise we quit so fast that we won't even receive
+    //free
+
     Datagram dgram = readInputData(inputFile);
     setDatagramSequence(&dgram, sequence);
     sendDatagram(desc, &dgram);

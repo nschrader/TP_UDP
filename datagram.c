@@ -4,15 +4,15 @@
 
 #define ERROR -1
 #define NO_FLAGS 0
+#define ONE_MATCH 1
 
-static Datagram _receiveDatagram(gint desc, gboolean noSequence) {
+Datagram receiveData(gint desc) {
   Datagram dgram = {0};
   Address source;
   struct sockaddr* src = (struct sockaddr*) &source;
   socklen_t len = sizeof(Address);
-  void* buf = noSequence ? (void*) &dgram.segment.data : (void*) &dgram.segment;
 
-  dgram.size = recvfrom(desc, buf, sizeof(DatagramSegment), NO_FLAGS, src, &len);
+  dgram.size = recvfrom(desc, &dgram.segment.data, sizeof(DatagramSegment), NO_FLAGS, src, &len);
   if (dgram.size == ERROR) {
     perror("Could not receive datagram");
     exit(EXIT_FAILURE);
@@ -23,12 +23,31 @@ static Datagram _receiveDatagram(gint desc, gboolean noSequence) {
   return dgram;
 }
 
-Datagram receiveDatagram(gint desc) {
-  return _receiveDatagram(desc, FALSE);
-}
+GList* receiveACK(guint desc) {
+  Datagram dgram = {0};
+  GList* acks = NULL;
 
-Datagram receivePureData(gint desc) {
-  return _receiveDatagram(desc, TRUE);
+  while (TRUE) {
+    dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), MSG_DONTWAIT);
+    if (dgram.size == ERROR) {
+      break;
+    }
+
+    gint ack;
+    if (sscanf((gchar*) &dgram.segment.data, "ACK%06d", &ack) == ONE_MATCH) {
+      acks = g_list_append(acks, GINT_TO_POINTER(ack));
+    } else {
+      alert("Got some weird ACKs out here...");
+    }
+  }
+
+  if (errno == EAGAIN) {
+    return acks;
+  } else {
+    perror("Could not receive ACK");
+    exit(EXIT_FAILURE);
+    return NULL;
+  }
 }
 
 void sendDatagram(gint desc, const Datagram* dgram) {

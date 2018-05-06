@@ -5,7 +5,7 @@ COMMON	= io.o protocol.o datagram.o
 HEADER	= ${COMMON.o:.h}
 
 server: server.o ${COMMON} ${HEADER}
-	${CC} ${LFLAGS} -o server $^
+	${CC} -o server $^ ${LFLAGS}
 
 clean:
 	rm -rf client server *.o

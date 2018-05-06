@@ -20,8 +20,8 @@ typedef struct {
 
 typedef struct sockaddr_in Address;
 
-Datagram receiveDatagram(gint desc);
-Datagram receivePureData(gint desc);
+Datagram receiveData(gint desc);
+GList* receiveACK(guint desc);
 void sendDatagram(gint desc, const Datagram* dgram);
 gchar* stringifyDatagramData(Datagram* dgram);
 void setDatagramSequence(Datagram* dgram, gint sequence);
