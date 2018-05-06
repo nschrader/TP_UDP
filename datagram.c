@@ -23,9 +23,8 @@ Datagram receiveData(gint desc) {
   return dgram;
 }
 
-GList* receiveACK(guint desc) {
+GList* receiveACK(GList* acks, guint desc) {
   Datagram dgram = {0};
-  GList* acks = NULL;
 
   while (TRUE) {
     dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), MSG_DONTWAIT);
@@ -58,7 +57,7 @@ void sendDatagram(gint desc, const Datagram* dgram) {
 }
 
 gchar* stringifyDatagramData(Datagram* dgram) {
-  dgram->segment.data[SEGSIZE-1] = '\0';
+  dgram->segment.data[sizeof(dgram->segment.data)] = '\0';
   return (gchar*) dgram->segment.data;
 }
 

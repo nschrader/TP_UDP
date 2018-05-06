@@ -71,23 +71,35 @@ gint acptConnection(gint publicDesc) {
   return 0;
 }
 
+//TODO: Remove those iterators
+void iterAcks(gpointer data, gpointer user_data) {
+  alert("no %d", GPOINTER_TO_INT(data));
+}
+
+void iterSeqs(gpointer key, gpointer value, gpointer user_data) {
+  alert("no %d at %u", GPOINTER_TO_INT(key), GPOINTER_TO_UINT(value));
+}
+
 void sendConnection(FILE* inputFile, gint desc) {
   gint sequence = FIRSTSEQ;
-  while (!feof(inputFile)) {
-    GList* acks = receiveACK(desc);
+  GList* acks = NULL;
+  GHashTable* seqs = g_hash_table_new(g_direct_hash, g_direct_equal);
 
-    GList* next = acks;
-    while (next != NULL) {
-      alert("Got ACK no %d", GPOINTER_TO_INT(next->data));
-      next = next->next;
-    }
+  while (!feof(inputFile)) {
+    acks = receiveACK(acks, desc);
     usleep(100000); //Otherwise we quit so fast that we won't even receive
-    //free
 
     Datagram dgram = readInputData(inputFile);
     setDatagramSequence(&dgram, sequence);
     sendDatagram(desc, &dgram);
+    g_hash_table_insert(seqs, GINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
     alert("Send seq %s", dgram.segment.sequence);
     sequence++;
   }
+
+  alert("Got the following ACKs:");
+  g_list_foreach(acks, iterAcks, NULL);
+  alert("Send the following sequences:");
+  g_hash_table_foreach(seqs, iterSeqs, NULL);
+  //TODO: free
 }
