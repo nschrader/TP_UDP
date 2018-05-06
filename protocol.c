@@ -89,8 +89,7 @@ void sendConnection(FILE* inputFile, gint desc) {
   GHashTable* seqs = g_hash_table_new(g_direct_hash, g_direct_equal);
 
   while (!feof(inputFile)) {
-    acks = receiveACK(acks, desc);
-    usleep(100000); //Otherwise we quit so fast that we won't even receive
+    acks = receiveACK(acks, desc, 100);
 
     Datagram dgram = readInputData(inputFile);
     setDatagramSequence(&dgram, sequence);

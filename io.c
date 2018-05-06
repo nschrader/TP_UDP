@@ -36,6 +36,17 @@ void getNameFromSocket(gint desc, const Address* addr) {
   getsockname(desc, (struct sockaddr*) addr, &size);
 }
 
+void setSocketTimeout(gint desc, gint milliseconds) {
+  struct timeval tv;
+  tv.tv_sec = 0;
+  tv.tv_usec = 1000*milliseconds;
+  if (setsockopt(desc, SOL_SOCKET, SO_RCVTIMEO, &tv,sizeof(tv)) == ERROR) {
+    perror("Could not set timeout");
+    close(desc);
+    exit(EXIT_FAILURE);
+  }
+}
+
 Datagram readInputData(FILE *inputFile) {
   Datagram dgram = {0};
   dgram.size = fread(&dgram.segment.data, sizeof(guint8), sizeof(dgram.segment.data), inputFile);

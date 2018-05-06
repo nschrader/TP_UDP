@@ -18,11 +18,13 @@ Datagram receiveData(gint desc) {
   return dgram;
 }
 
-GList* receiveACK(GList* acks, guint desc) {
+GList* receiveACK(GList* acks, gint desc, gint timeout) {
   Datagram dgram = {0};
+  setSocketTimeout(desc, timeout);
+  gint flags = timeout == 0 ? MSG_DONTWAIT : NO_FLAGS;
 
   while (TRUE) {
-    dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), MSG_DONTWAIT);
+    dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), flags);
     if (dgram.size == ERROR) {
       break;
     }
@@ -39,6 +41,7 @@ GList* receiveACK(GList* acks, guint desc) {
     return acks;
   } else {
     perror("Could not receive ACK");
+    close(desc);
     exit(EXIT_FAILURE);
     return NULL;
   }
@@ -47,6 +50,7 @@ GList* receiveACK(GList* acks, guint desc) {
 void sendDatagram(gint desc, const Datagram* dgram) {
   if (send(desc, &dgram->segment, dgram->size, NO_FLAGS) == ERROR) {
     perror("Could not send datagram");
+    close(desc);
     exit(EXIT_FAILURE);
   }
 }

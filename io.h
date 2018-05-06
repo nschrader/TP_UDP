@@ -12,6 +12,7 @@ gint createSocket();
 void connectSocket(gint desc, const Address* addr);
 void bindSocket(gint desc, const Address* addr);
 void getNameFromSocket(gint desc, const Address* addr);
+void setSocketTimeout(gint desc, gint milliseconds);
 
 Datagram readInputData(FILE *inputFile);
 
