@@ -30,11 +30,12 @@ gint acptConnection(gint publicDesc) {
   srand(time(NULL));
   gint port = BASEPORT + rand() % PORTRANGE;
 
-  Address privateAddr;
+  Address privateAddr = {
+    .sin_family = AF_INET,
+    .sin_addr.s_addr = htonl(INADDR_ANY),
+    .sin_port = htons(port)
+  };
   gint privateDesc = createSocket();
-  privateAddr.sin_family = AF_INET;
-  privateAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  privateAddr.sin_port = htons(port);
   bindSocket(privateDesc, &privateAddr);
 
   gchar synBuf[8];
@@ -63,6 +64,8 @@ gint acptConnection(gint publicDesc) {
     goto error;
   }
 
+  connectSocket(privateDesc, &source);
+
   alert("Assigned data port %d to %s", port, inet_ntoa(source.sin_addr));
   return privateDesc;
 
@@ -87,7 +90,7 @@ void sendConnection(FILE* inputFile, gint desc) {
 	gint RTT = 0;
 
   while (!feof(inputFile)) {
-    acks = receiveACK(acks, desc);
+    acks = receiveACK(acks, desc, 100);
     usleep(100000); //Otherwise we quit so fast that we won't even receive
 		
 		if (acks != NULL) {
@@ -107,5 +110,7 @@ void sendConnection(FILE* inputFile, gint desc) {
   g_list_foreach(acks, iterAcks, NULL);
   alert("Send the following sequences:");
   g_hash_table_foreach(seqs, iterSeqs, NULL);
-  //TODO: free
+
+  g_list_free(acks);
+  g_hash_table_destroy(seqs);
 }

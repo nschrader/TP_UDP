@@ -8,26 +8,23 @@
 
 Datagram receiveData(gint desc) {
   Datagram dgram = {0};
-  Address source;
-  struct sockaddr* src = (struct sockaddr*) &source;
-  socklen_t len = sizeof(Address);
 
-  dgram.size = recvfrom(desc, &dgram.segment.data, sizeof(DatagramSegment), NO_FLAGS, src, &len);
+  dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), NO_FLAGS);
   if (dgram.size == ERROR) {
     perror("Could not receive datagram");
     exit(EXIT_FAILURE);
   }
 
-  // We need to answer, disconnect when done
-  connectSocket(desc, &source);
   return dgram;
 }
 
-GList* receiveACK(GList* acks, guint desc) {
+GList* receiveACK(GList* acks, gint desc, gint timeout) {
   Datagram dgram = {0};
+  setSocketTimeout(desc, timeout);
+  gint flags = timeout == 0 ? MSG_DONTWAIT : NO_FLAGS;
 
   while (TRUE) {
-    dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), MSG_DONTWAIT);
+    dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), flags);
     if (dgram.size == ERROR) {
       break;
     }
@@ -44,6 +41,7 @@ GList* receiveACK(GList* acks, guint desc) {
     return acks;
   } else {
     perror("Could not receive ACK");
+    close(desc);
     exit(EXIT_FAILURE);
     return NULL;
   }
@@ -52,6 +50,7 @@ GList* receiveACK(GList* acks, guint desc) {
 void sendDatagram(gint desc, const Datagram* dgram) {
   if (send(desc, &dgram->segment, dgram->size, NO_FLAGS) == ERROR) {
     perror("Could not send datagram");
+    close(desc);
     exit(EXIT_FAILURE);
   }
 }
