@@ -7,6 +7,9 @@
 #define NO_FLAGS 0
 #define EQUALS 0
 
+#define ALPHA 0.875
+#define BETA 2
+
 static void fatalTransmissionError(const gchar* msg) {
   if (!errno) {
     errno = ECONNREFUSED;
@@ -83,6 +86,17 @@ void iterSeqs(gpointer key, gpointer value, gpointer user_data) {
   alert("no %d at %u", GPOINTER_TO_INT(key), GPOINTER_TO_UINT(value));
 }
 
+static guint estimateRTT(gint estimatedRTT, GList* acks, GHashTable* seqs){
+	gint seqNum = GPOINTER_TO_INT(g_list_last(acks)->data);
+	guint seqTime = GPOINTER_TO_UINT(g_hash_table_lookup(seqs, GINT_TO_POINTER(seqNum)));
+  guint sampleTime = g_get_monotonic_time() - seqTime;
+	if (estimatedRTT == 0) {
+		return sampleTime;
+	}
+	gint RTT = ALPHA * estimatedRTT + (1-ALPHA) * sampleTime;
+	return RTT;
+}
+
 void sendConnection(FILE* inputFile, gint desc) {
   gint sequence = FIRSTSEQ;
   GList* acks = NULL;
@@ -90,13 +104,11 @@ void sendConnection(FILE* inputFile, gint desc) {
 	gint RTT = 0;
 
   while (!feof(inputFile)) {
-    acks = receiveACK(acks, desc, 100);
+    if(receiveACK(&acks, desc, 100)) {
+      RTT = estimateRTT(RTT, acks, seqs);
+			alert("RTT: %d", RTT);
+    }
     usleep(100000); //Otherwise we quit so fast that we won't even receive
-		
-		if (acks != NULL) {
-			RTT = estimateRTT(RTT, acks, seqs);  		
-			alert("%d", RTT);
-		}
 
     Datagram dgram = readInputData(inputFile);
     setDatagramSequence(&dgram, sequence);
