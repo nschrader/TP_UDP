@@ -47,8 +47,10 @@ void setSocketTimeout(gint desc, gint milliseconds) {
   }
 }
 
-Datagram readInputData(FILE *inputFile) {
+Datagram readInputData(FILE *inputFile, gsize seqNumber) {
+  //TODO: This might slow down IO, we could try using a bigger buffer or so
   Datagram dgram = {0};
+  fseek(inputFile, SEEK_SET, seqNumber * sizeof(dgram.segment.data));
   dgram.size = fread(&dgram.segment.data, sizeof(guint8), sizeof(dgram.segment.data), inputFile);
   dgram.size += SEQSIZE;
   return dgram;

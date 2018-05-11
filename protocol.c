@@ -135,15 +135,15 @@ void sendConnection(FILE* inputFile, gint desc) {
 			RTO = BETA * RTT;
     }
     usleep(100000); //Otherwise we quit so fast that we won't even receive
-	
+
 		majSeq(acks, seqs, RTO, desc, inputFile);
 		
-		Datagram dgram = readInputData(inputFile);
-		setDatagramSequence(&dgram, sequence);
-		sendDatagram(desc, &dgram);
-		g_hash_table_insert(seqs, GINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
-		alert("Send seq %s", dgram.segment.sequence);
-		sequence++;
+    Datagram dgram = readInputData(inputFile, sequence);
+    setDatagramSequence(&dgram, sequence);
+    sendDatagram(desc, &dgram);
+    g_hash_table_insert(seqs, GINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
+    alert("Send seq %s", dgram.segment.sequence);
+    sequence++;
   }
 
   alert("Got the following ACKs:");
