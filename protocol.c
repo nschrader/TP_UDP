@@ -110,7 +110,7 @@ void sendConnection(FILE* inputFile, gint desc) {
     }
     usleep(100000); //Otherwise we quit so fast that we won't even receive
 
-    Datagram dgram = readInputData(inputFile);
+    Datagram dgram = readInputData(inputFile, sequence);
     setDatagramSequence(&dgram, sequence);
     sendDatagram(desc, &dgram);
     g_hash_table_insert(seqs, GINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
