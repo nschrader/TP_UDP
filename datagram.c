@@ -29,8 +29,13 @@ gboolean receiveACK(GList** acks, gint desc, gint timeout) {
     if (dgram.size != ERROR) {
       gint ack;
       if (sscanf((gchar*) &dgram.segment.data, "ACK%06d", &ack) == ONE_MATCH) {
-        *acks = g_list_append(*acks, GINT_TO_POINTER(ack));
-        new = TRUE;
+				if (g_list_find(*acks, GINT_TO_POINTER(ack))){
+					alert("fast retransmit %d", ack);
+				} else {
+					*acks = g_list_append(*acks, GINT_TO_POINTER(ack));
+					new = TRUE;
+					alert("Received ACK %d", ack);
+				}	
       } else {
         alert("Got some weird ACKs out here...");
       }

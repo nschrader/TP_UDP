@@ -13,6 +13,7 @@ void connectSocket(gint desc, const Address* addr);
 void bindSocket(gint desc, const Address* addr);
 void getNameFromSocket(gint desc, const Address* addr);
 void setSocketTimeout(gint desc, gint milliseconds);
+guint getMaxSeq(FILE* inputFile);
 
 Datagram readInputData(FILE *inputFile, gsize seqNumber);
 

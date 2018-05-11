@@ -10,6 +10,8 @@
 #define ALPHA 0.875
 #define BETA 2
 
+#define SEC_IN_USEC (1000*1000)
+
 static void fatalTransmissionError(const gchar* msg) {
   if (!errno) {
     errno = ECONNREFUSED;
@@ -98,27 +100,40 @@ static guint estimateRTT(gint estimatedRTT, GList* acks, GHashTable* seqs){
 }
 
 gboolean iterSeqRem(gpointer key, gpointer value, gpointer packs) {
-	GList* acks = (GList*) packs;
-	return g_list_find (acks, key) != NULL; // !!! remove the acks too
+	GList** acks = (GList**) packs;
+	if (g_list_find (*acks, key) != NULL) {
+		//TODO: trouver pourquoi il y a un ack0
+		for (gint i = 1; i < GPOINTER_TO_INT(key); i++){
+			*acks = g_list_remove (*acks, GINT_TO_POINTER(i));
+		}
+		return TRUE; 
+	} else {
+		return FALSE;
+	}
+	
 }
 
 
 static void majSeq(GList* acks, GHashTable* seqs, gint RTO, gint desc, FILE* inputFile) {
-	g_hash_table_foreach_remove (seqs, iterSeqRem, acks); //remove what is OK
+	g_hash_table_foreach_remove (seqs, iterSeqRem, &acks); //remove what is OK
 	
 	GHashTableIter iter;
 	gpointer key, value;
 	g_hash_table_iter_init (&iter, seqs);
 	while (g_hash_table_iter_next (&iter, &key, &value)) {
-			guint time = GPOINTER_TO_UINT (value);
-			if (g_get_monotonic_time() - time >= RTO) {
-				alert("seq %d timeout - sending again ...", GPOINTER_TO_INT(key)); 
-				Datagram dgram = {0};
-				dgram.size = sizeof(dgram.segment);
-				setDatagramSequence(&dgram, GPOINTER_TO_INT(key));
-				sendDatagram(desc, &dgram);
-			}
+		guint time = GPOINTER_TO_UINT (value);
+		if (g_get_monotonic_time() - time >= RTO) {
+			alert("seq %d timeout - sending again ...", GPOINTER_TO_INT(key)); 
+			Datagram dgram = readInputData(inputFile, GPOINTER_TO_INT(key));
+			setDatagramSequence(&dgram, GPOINTER_TO_INT(key));
+			sendDatagram(desc, &dgram);
 		}
+	}
+	alert("Got the following ACKs:");
+  g_list_foreach(acks, iterAcks, NULL);
+  alert("Send the following sequences:");
+  g_hash_table_foreach(seqs, iterSeqs, NULL);
+	
 }
 
 void sendConnection(FILE* inputFile, gint desc) {
@@ -126,9 +141,16 @@ void sendConnection(FILE* inputFile, gint desc) {
   GList* acks = NULL;
   GHashTable* seqs = g_hash_table_new(g_direct_hash, g_direct_equal);
 	gint RTT = 0;
-	gint RTO = 1000000000;
+	gint RTO = SEC_IN_USEC;
+	guint maxSeq = getMaxSeq(inputFile);
 
-  while (!feof(inputFile)) {
+	gint currentSeq = 0;
+  while (currentSeq != maxSeq) {
+		GList* last = g_list_last(acks);
+		if (last) {
+			currentSeq = GPOINTER_TO_INT(last->data);
+		}
+		alert("Exit condition %d", currentSeq);
     if(receiveACK(&acks, desc, 100)) {
       RTT = estimateRTT(RTT, acks, seqs);
 			alert("RTT: %d", RTT);
@@ -138,18 +160,18 @@ void sendConnection(FILE* inputFile, gint desc) {
 
 		majSeq(acks, seqs, RTO, desc, inputFile);
 		
-    Datagram dgram = readInputData(inputFile, sequence);
-    setDatagramSequence(&dgram, sequence);
-    sendDatagram(desc, &dgram);
-    g_hash_table_insert(seqs, GINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
-    alert("Send seq %s", dgram.segment.sequence);
-    sequence++;
+		if (sequence <= maxSeq){
+			Datagram dgram = readInputData(inputFile, sequence);
+			setDatagramSequence(&dgram, sequence);
+			sendDatagram(desc, &dgram);
+			g_hash_table_insert(seqs, GINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
+			alert("Send seq %s", dgram.segment.sequence);
+			sequence++;
+		}
+		
   }
 
-  alert("Got the following ACKs:");
-  g_list_foreach(acks, iterAcks, NULL);
-  alert("Send the following sequences:");
-  g_hash_table_foreach(seqs, iterSeqs, NULL);
+  
 
   g_list_free(acks);
   g_hash_table_destroy(seqs);

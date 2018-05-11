@@ -47,10 +47,20 @@ void setSocketTimeout(gint desc, gint milliseconds) {
   }
 }
 
+guint getMaxSeq(FILE* inputFile){
+	Datagram dgram = {0};
+	fseek (inputFile, 0, SEEK_END);
+	guint size = ftell(inputFile);
+	alert("size %u", size);
+	guint maxSeq = (size/sizeof(dgram.segment.data)) +1;
+	alert("maxSeq: %u", maxSeq);
+	return maxSeq;
+}
+
 Datagram readInputData(FILE *inputFile, gsize seqNumber) {
   //TODO: This might slow down IO, we could try using a bigger buffer or so
   Datagram dgram = {0};
-  fseek(inputFile, SEEK_SET, seqNumber * sizeof(dgram.segment.data));
+  fseek(inputFile, (seqNumber - 1) * sizeof(dgram.segment.data), SEEK_SET);
   dgram.size = fread(&dgram.segment.data, sizeof(guint8), sizeof(dgram.segment.data), inputFile);
   dgram.size += SEQSIZE;
   return dgram;
