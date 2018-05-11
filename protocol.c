@@ -97,25 +97,53 @@ static guint estimateRTT(gint estimatedRTT, GList* acks, GHashTable* seqs){
 	return RTT;
 }
 
+gboolean iterSeqRem(gpointer key, gpointer value, gpointer packs) {
+	GList* acks = (GList*) packs;
+	return g_list_find (acks, key) != NULL; // !!! remove the acks too
+}
+
+
+static void majSeq(GList* acks, GHashTable* seqs, gint RTO, gint desc, FILE* inputFile) {
+	g_hash_table_foreach_remove (seqs, iterSeqRem, acks); //remove what is OK
+	
+	GHashTableIter iter;
+	gpointer key, value;
+	g_hash_table_iter_init (&iter, seqs);
+	while (g_hash_table_iter_next (&iter, &key, &value)) {
+			guint time = GPOINTER_TO_UINT (value);
+			if (g_get_monotonic_time() - time >= RTO) {
+				alert("seq %d timeout - sending again ...", GPOINTER_TO_INT(key)); 
+				Datagram dgram = {0};
+				dgram.size = sizeof(dgram.segment);
+				setDatagramSequence(&dgram, GPOINTER_TO_INT(key));
+				sendDatagram(desc, &dgram);
+			}
+		}
+}
+
 void sendConnection(FILE* inputFile, gint desc) {
   gint sequence = FIRSTSEQ;
   GList* acks = NULL;
   GHashTable* seqs = g_hash_table_new(g_direct_hash, g_direct_equal);
 	gint RTT = 0;
+	gint RTO = 1000000000;
 
   while (!feof(inputFile)) {
     if(receiveACK(&acks, desc, 100)) {
       RTT = estimateRTT(RTT, acks, seqs);
 			alert("RTT: %d", RTT);
+			RTO = BETA * RTT;
     }
     usleep(100000); //Otherwise we quit so fast that we won't even receive
-
-    Datagram dgram = readInputData(inputFile);
-    setDatagramSequence(&dgram, sequence);
-    sendDatagram(desc, &dgram);
-    g_hash_table_insert(seqs, GINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
-    alert("Send seq %s", dgram.segment.sequence);
-    sequence++;
+	
+		majSeq(acks, seqs, RTO, desc, inputFile);
+		
+		Datagram dgram = readInputData(inputFile);
+		setDatagramSequence(&dgram, sequence);
+		sendDatagram(desc, &dgram);
+		g_hash_table_insert(seqs, GINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
+		alert("Send seq %s", dgram.segment.sequence);
+		sequence++;
   }
 
   alert("Got the following ACKs:");
