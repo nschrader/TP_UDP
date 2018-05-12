@@ -79,100 +79,75 @@ gint acptConnection(gint publicDesc) {
   return 0;
 }
 
-//TODO: Remove those iterators
-void iterAcks(gpointer data, gpointer user_data) {
-  alert("no %d", GPOINTER_TO_INT(data));
-}
-
-void iterSeqs(gpointer key, gpointer value, gpointer user_data) {
-  alert("no %d at %u", GPOINTER_TO_INT(key), GPOINTER_TO_UINT(value));
-}
-
-static guint estimateRTT(gint estimatedRTT, GList* acks, GHashTable* seqs){
-	gint seqNum = GPOINTER_TO_INT(g_list_last(acks)->data);
-	guint seqTime = GPOINTER_TO_UINT(g_hash_table_lookup(seqs, GINT_TO_POINTER(seqNum)));
+static guint estimateRTT(gint estimatedRTT, GQueue* acks, GHashTable* seqs){
+	guint seqNum = GPOINTER_TO_UINT(g_queue_peek_tail(acks));
+	guint seqTime = GPOINTER_TO_UINT(g_hash_table_lookup(seqs, GUINT_TO_POINTER(seqNum)));
   guint sampleTime = g_get_monotonic_time() - seqTime;
 	if (estimatedRTT == 0) {
 		return sampleTime;
 	}
-	gint RTT = ALPHA * estimatedRTT + (1-ALPHA) * sampleTime;
+	guint RTT = ALPHA * estimatedRTT + (1-ALPHA) * sampleTime;
 	return RTT;
 }
 
 gboolean iterSeqRem(gpointer key, gpointer value, gpointer packs) {
-	GList** acks = (GList**) packs;
-	if (g_list_find (*acks, key) != NULL) {
-		//TODO: trouver pourquoi il y a un ack0
-		for (gint i = 1; i < GPOINTER_TO_INT(key); i++){
-			*acks = g_list_remove (*acks, GINT_TO_POINTER(i));
+	GQueue* acks = (GQueue*) packs;
+	if (g_queue_find(acks, key) != NULL) {
+		for (guint i = 1; i < GPOINTER_TO_UINT(key); i++) {
+			g_queue_remove(acks, GUINT_TO_POINTER(i));
 		}
-		return TRUE; 
+		return TRUE;
 	} else {
 		return FALSE;
 	}
-	
 }
 
+static void majSeq(GQueue* acks, GHashTable* seqs, guint RTO, gint desc, FILE* inputFile) {
+	g_hash_table_foreach_remove(seqs, iterSeqRem, acks); //remove what is OK
 
-static void majSeq(GList* acks, GHashTable* seqs, gint RTO, gint desc, FILE* inputFile) {
-	g_hash_table_foreach_remove (seqs, iterSeqRem, &acks); //remove what is OK
-	
 	GHashTableIter iter;
 	gpointer key, value;
-	g_hash_table_iter_init (&iter, seqs);
-	while (g_hash_table_iter_next (&iter, &key, &value)) {
-		guint time = GPOINTER_TO_UINT (value);
+	g_hash_table_iter_init(&iter, seqs);
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		guint time = GPOINTER_TO_UINT(value);
 		if (g_get_monotonic_time() - time >= RTO) {
-			alert("seq %d timeout - sending again ...", GPOINTER_TO_INT(key)); 
-			Datagram dgram = readInputData(inputFile, GPOINTER_TO_INT(key));
-			setDatagramSequence(&dgram, GPOINTER_TO_INT(key));
+			alert("seq %u timeout - sending again ...", GPOINTER_TO_UINT(key));
+			Datagram dgram = readInputData(inputFile, GPOINTER_TO_UINT(key));
+			setDatagramSequence(&dgram, GPOINTER_TO_UINT(key));
 			sendDatagram(desc, &dgram);
 		}
 	}
-	alert("Got the following ACKs:");
-  g_list_foreach(acks, iterAcks, NULL);
-  alert("Send the following sequences:");
-  g_hash_table_foreach(seqs, iterSeqs, NULL);
-	
 }
 
 void sendConnection(FILE* inputFile, gint desc) {
-  gint sequence = FIRSTSEQ;
-  GList* acks = NULL;
+  GQueue* acks = g_queue_new();
   GHashTable* seqs = g_hash_table_new(g_direct_hash, g_direct_equal);
-	gint RTT = 0;
-	gint RTO = SEC_IN_USEC;
+  guint sequence = FIRSTSEQ;
+	guint RTT = 0;
+	guint RTO = SEC_IN_USEC;
 	guint maxSeq = getMaxSeq(inputFile);
 
-	gint currentSeq = 0;
-  while (currentSeq != maxSeq) {
-		GList* last = g_list_last(acks);
-		if (last) {
-			currentSeq = GPOINTER_TO_INT(last->data);
-		}
-		alert("Exit condition %d", currentSeq);
-    if(receiveACK(&acks, desc, 100)) {
+  while (GPOINTER_TO_UINT(g_queue_peek_tail(acks)) != maxSeq) {
+    if(receiveACK(acks, desc, 100)) {
       RTT = estimateRTT(RTT, acks, seqs);
 			alert("RTT: %d", RTT);
 			RTO = BETA * RTT;
     }
+    //TODO: TO be removed
     usleep(100000); //Otherwise we quit so fast that we won't even receive
 
 		majSeq(acks, seqs, RTO, desc, inputFile);
-		
+
 		if (sequence <= maxSeq){
 			Datagram dgram = readInputData(inputFile, sequence);
 			setDatagramSequence(&dgram, sequence);
 			sendDatagram(desc, &dgram);
-			g_hash_table_insert(seqs, GINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
+			g_hash_table_insert(seqs, GUINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
 			alert("Send seq %s", dgram.segment.sequence);
 			sequence++;
 		}
-		
   }
 
-  
-
-  g_list_free(acks);
+  g_queue_free(acks);
   g_hash_table_destroy(seqs);
 }

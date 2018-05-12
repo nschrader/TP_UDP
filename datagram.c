@@ -18,7 +18,8 @@ Datagram receiveData(gint desc) {
   return dgram;
 }
 
-gint compAcks (gconstpointer a, gconstpointer b) {
+
+gint compAcks (gconstpointer a, gconstpointer b, gpointer user_data) {
 	if (a < b) {
 		return -1;
 	} else if (a == b) {
@@ -28,7 +29,7 @@ gint compAcks (gconstpointer a, gconstpointer b) {
 	}
 }
 
-gboolean receiveACK(GList** acks, gint desc, gint timeout) {
+gboolean receiveACK(GQueue* acks, gint desc, gint timeout) {
   Datagram dgram = {0};
   setSocketTimeout(desc, timeout);
   gint flags = timeout == 0 ? MSG_DONTWAIT : NO_FLAGS;
@@ -37,16 +38,17 @@ gboolean receiveACK(GList** acks, gint desc, gint timeout) {
   while (TRUE) {
     dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), flags);
     if (dgram.size != ERROR) {
-      gint ack;
-      if (sscanf((gchar*) &dgram.segment.data, "ACK%06d", &ack) == ONE_MATCH) {
-				if (g_list_find(*acks, GINT_TO_POINTER(ack))){
-					alert("fast retransmit %d", ack);
+      guint ack;
+      if (sscanf((gchar*) &dgram.segment.data, "ACK%06u", &ack) == ONE_MATCH) {
+				if (g_queue_find(acks, GUINT_TO_POINTER(ack))) {
+          //TODO: Implement Fast Retransmit
+					alert("fast retransmit %u", ack);
 				} else {
-					*acks = g_list_append(*acks, GINT_TO_POINTER(ack));
+					g_queue_push_tail(acks, GUINT_TO_POINTER(ack));
 					new = TRUE;
-					*acks = g_list_sort (*acks, compAcks);
+					g_queue_sort (acks, compAcks, NULL);
 					alert("Received ACK %d", ack);
-				}	
+				}
       } else {
         alert("Got some weird ACKs out here...");
       }
@@ -77,6 +79,6 @@ gchar* stringifyDatagramData(Datagram* dgram) {
   return (gchar*) dgram->segment.data;
 }
 
-void setDatagramSequence(Datagram* dgram, gint sequence) {
+void setDatagramSequence(Datagram* dgram, guint sequence) {
   g_snprintf(dgram->segment.sequence, SEQSIZE, SEQFORMAT, sequence);
 }
