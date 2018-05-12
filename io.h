@@ -15,6 +15,6 @@ void getNameFromSocket(gint desc, const Address* addr);
 void setSocketTimeout(gint desc, gint milliseconds);
 guint getMaxSeq(FILE* inputFile);
 
-Datagram readInputData(FILE *inputFile, gsize seqNumber);
+Datagram readInputData(FILE *inputFile, guint seqNumber);
 
 #endif

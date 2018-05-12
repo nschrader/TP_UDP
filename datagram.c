@@ -27,15 +27,16 @@ gboolean receiveACK(GList** acks, gint desc, gint timeout) {
   while (TRUE) {
     dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), flags);
     if (dgram.size != ERROR) {
-      gint ack;
-      if (sscanf((gchar*) &dgram.segment.data, "ACK%06d", &ack) == ONE_MATCH) {
-				if (g_list_find(*acks, GINT_TO_POINTER(ack))){
-					alert("fast retransmit %d", ack);
+      guint ack;
+      if (sscanf((gchar*) &dgram.segment.data, "ACK%06u", &ack) == ONE_MATCH) {
+				if (g_list_find(*acks, GUINT_TO_POINTER(ack))){
+          //TODO: Implement Fast Retransmit
+					alert("fast retransmit %u", ack);
 				} else {
-					*acks = g_list_append(*acks, GINT_TO_POINTER(ack));
+					*acks = g_list_append(*acks, GUINT_TO_POINTER(ack));
 					new = TRUE;
 					alert("Received ACK %d", ack);
-				}	
+				}
       } else {
         alert("Got some weird ACKs out here...");
       }
@@ -66,6 +67,6 @@ gchar* stringifyDatagramData(Datagram* dgram) {
   return (gchar*) dgram->segment.data;
 }
 
-void setDatagramSequence(Datagram* dgram, gint sequence) {
+void setDatagramSequence(Datagram* dgram, guint sequence) {
   g_snprintf(dgram->segment.sequence, SEQSIZE, SEQFORMAT, sequence);
 }

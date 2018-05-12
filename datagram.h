@@ -6,7 +6,7 @@
 #define GCC_PACKED __attribute__((packed))
 #define SEGSIZE 1500
 #define SEQSIZE 6
-#define SEQFORMAT "%05d"
+#define SEQFORMAT "%05u"
 
 typedef struct GCC_PACKED {
   gchar sequence[SEQSIZE];
@@ -24,6 +24,6 @@ Datagram receiveData(gint desc);
 gboolean receiveACK(GList** acks, gint desc, gint timeout);
 void sendDatagram(gint desc, const Datagram* dgram);
 gchar* stringifyDatagramData(Datagram* dgram);
-void setDatagramSequence(Datagram* dgram, gint sequence);
+void setDatagramSequence(Datagram* dgram, guint sequence);
 
 #endif
