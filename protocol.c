@@ -105,8 +105,9 @@ gboolean iterSeqRem(gpointer key, gpointer value, gpointer packs) {
 	}
 }
 
-static void majSeq(GQueue* acks, GHashTable* seqs, guint RTO, gint desc, FILE* inputFile) {
-	g_hash_table_foreach_remove(seqs, iterSeqRem, acks); //remove what is OK
+
+static void majSeq(GQueue* acks, GHashTable* seqs, guint RTO, gint desc, FILE* inputFile, guint* ssthresh, guint* winSize, guint* winLeft) {
+	g_hash_table_foreach_remove(seqs, iterSeqRem, acks);
 
 	GHashTableIter iter;
 	gpointer key, value;
@@ -118,7 +119,25 @@ static void majSeq(GQueue* acks, GHashTable* seqs, guint RTO, gint desc, FILE* i
 			Datagram dgram = readInputData(inputFile, GPOINTER_TO_UINT(key));
 			setDatagramSequence(&dgram, GPOINTER_TO_UINT(key));
 			sendDatagram(desc, &dgram);
+			*ssthresh = (*winSize)/2 + 1;
+			*winSize = 1;
+			*winLeft = 1;
+			break;
 		}
+	}
+}
+
+void setWin (guint ssthresh, guint* winSize, guint* winLeft, guint* t0, guint ackNum, guint RTT){
+	if (*winSize == ssthresh) {
+		*t0 = g_get_monotonic_time();
+		*winSize += ackNum;
+		*winLeft += 2 * ackNum;
+	} else if (*winSize < ssthresh) {
+		*winSize += ackNum;
+		*winLeft += 2 * ackNum;
+	} else if (*winSize > ssthresh && (g_get_monotonic_time() - *t0) > RTT) {
+		*winSize += 1;
+		*winLeft += 2;
 	}
 }
 
@@ -129,26 +148,34 @@ void sendConnection(FILE* inputFile, gint desc) {
 	guint RTT = 0;
 	guint RTO = SEC_IN_USEC;
 	guint maxSeq = getMaxSeq(inputFile);
+	//TODO: update it and use it
+	//guint timeout = 0;
+	
+	guint winSize = 1;
+	guint ssthresh = 10;
+	guint winLeft = 1;
+	guint t0 = 0;
 
   while (GPOINTER_TO_UINT(g_queue_peek_tail(acks)) != maxSeq) {
+    alert ("winSize %u, winLeft %u, ssthresh %u", winSize, winLeft, ssthresh);
     guint newAckNum = receiveACK(acks, desc, 100);
     if(newAckNum  > 0) {
       estimateRTT(&RTT, seqs, acks, newAckNum);
 			RTO = BETA * RTT;
       alert("RTT is now: %.0fms", RTT/1000.0);
+      setWin (ssthresh, &winSize, &winLeft, &t0, newAckNum, RTT);
     }
-    //TODO: TO be removed
-    usleep(100000); //Otherwise we quit so fast that we won't even receive
+    
+		majSeq(acks, seqs, RTO, desc, inputFile, &ssthresh, &winSize, &winLeft);
 
-		majSeq(acks, seqs, RTO, desc, inputFile);
-
-		if (sequence <= maxSeq){
+		if (sequence <= maxSeq && winLeft > 0){
 			Datagram dgram = readInputData(inputFile, sequence);
 			setDatagramSequence(&dgram, sequence);
 			sendDatagram(desc, &dgram);
 			g_hash_table_insert(seqs, GUINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
 			alert("Send seq %s", dgram.segment.sequence);
 			sequence++;
+			winLeft --;
 		}
   }
 
