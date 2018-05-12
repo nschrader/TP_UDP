@@ -101,39 +101,37 @@ static guint estimateRTT(gint estimatedRTT, GList* acks, GHashTable* seqs){
 
 gboolean iterSeqRem(gpointer key, gpointer value, gpointer packs) {
 	GList** acks = (GList**) packs;
-	if (g_list_find (*acks, key) != NULL) {
-		//TODO: trouver pourquoi il y a un ack0
+	if (g_list_find(*acks, key) != NULL) {
 		for (gint i = 1; i < GPOINTER_TO_INT(key); i++){
-			*acks = g_list_remove (*acks, GINT_TO_POINTER(i));
+			*acks = g_list_remove(*acks, GINT_TO_POINTER(i));
 		}
-		return TRUE; 
+		return TRUE;
 	} else {
 		return FALSE;
 	}
-	
 }
 
 
-static void majSeq(GList* acks, GHashTable* seqs, gint RTO, gint desc, FILE* inputFile) {
-	g_hash_table_foreach_remove (seqs, iterSeqRem, &acks); //remove what is OK
-	
+static void majSeq(GList** acks, GHashTable* seqs, gint RTO, gint desc, FILE* inputFile) {
+	g_hash_table_foreach_remove(seqs, iterSeqRem, acks); //remove what is OK
+
 	GHashTableIter iter;
 	gpointer key, value;
-	g_hash_table_iter_init (&iter, seqs);
-	while (g_hash_table_iter_next (&iter, &key, &value)) {
-		guint time = GPOINTER_TO_UINT (value);
+	g_hash_table_iter_init(&iter, seqs);
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		guint time = GPOINTER_TO_UINT(value);
 		if (g_get_monotonic_time() - time >= RTO) {
-			alert("seq %d timeout - sending again ...", GPOINTER_TO_INT(key)); 
+			alert("seq %d timeout - sending again ...", GPOINTER_TO_INT(key));
 			Datagram dgram = readInputData(inputFile, GPOINTER_TO_INT(key));
 			setDatagramSequence(&dgram, GPOINTER_TO_INT(key));
 			sendDatagram(desc, &dgram);
 		}
 	}
+  //TODO: To be removed
 	alert("Got the following ACKs:");
-  g_list_foreach(acks, iterAcks, NULL);
+  g_list_foreach(*acks, iterAcks, NULL);
   alert("Send the following sequences:");
   g_hash_table_foreach(seqs, iterSeqs, NULL);
-	
 }
 
 void sendConnection(FILE* inputFile, gint desc) {
@@ -150,16 +148,18 @@ void sendConnection(FILE* inputFile, gint desc) {
 		if (last) {
 			currentSeq = GPOINTER_TO_INT(last->data);
 		}
+    //TODO: To be removed
 		alert("Exit condition %d", currentSeq);
     if(receiveACK(&acks, desc, 100)) {
       RTT = estimateRTT(RTT, acks, seqs);
 			alert("RTT: %d", RTT);
 			RTO = BETA * RTT;
     }
+    //TODO: TO be removed
     usleep(100000); //Otherwise we quit so fast that we won't even receive
 
-		majSeq(acks, seqs, RTO, desc, inputFile);
-		
+		majSeq(&acks, seqs, RTO, desc, inputFile);
+
 		if (sequence <= maxSeq){
 			Datagram dgram = readInputData(inputFile, sequence);
 			setDatagramSequence(&dgram, sequence);
@@ -168,10 +168,7 @@ void sendConnection(FILE* inputFile, gint desc) {
 			alert("Send seq %s", dgram.segment.sequence);
 			sequence++;
 		}
-		
   }
-
-  
 
   g_list_free(acks);
   g_hash_table_destroy(seqs);
