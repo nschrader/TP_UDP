@@ -18,6 +18,16 @@ Datagram receiveData(gint desc) {
   return dgram;
 }
 
+gint compAcks (gconstpointer a, gconstpointer b) {
+	if (a < b) {
+		return -1;
+	} else if (a == b) {
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
 gboolean receiveACK(GList** acks, gint desc, gint timeout) {
   Datagram dgram = {0};
   setSocketTimeout(desc, timeout);
@@ -34,6 +44,7 @@ gboolean receiveACK(GList** acks, gint desc, gint timeout) {
 				} else {
 					*acks = g_list_append(*acks, GINT_TO_POINTER(ack));
 					new = TRUE;
+					*acks = g_list_sort (*acks, compAcks);
 					alert("Received ACK %d", ack);
 				}	
       } else {
