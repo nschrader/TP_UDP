@@ -18,11 +18,11 @@ Datagram receiveData(gint desc) {
   return dgram;
 }
 
-gboolean receiveACK(GQueue* acks, gint desc, gint timeout) {
+guint receiveACK(GQueue* acks, gint desc, gint timeout) {
   Datagram dgram = {0};
   setSocketTimeout(desc, timeout);
   gint flags = timeout == 0 ? MSG_DONTWAIT : NO_FLAGS;
-  gboolean new = FALSE;
+  guint newAckNum = 0;
 
   while (TRUE) {
     dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), flags);
@@ -34,7 +34,7 @@ gboolean receiveACK(GQueue* acks, gint desc, gint timeout) {
 					alert("fast retransmit %u", ack);
 				} else {
 					g_queue_push_tail(acks, GUINT_TO_POINTER(ack));
-					new = TRUE;
+					newAckNum++;
 					alert("Received ACK %d", ack);
 				}
       } else {
@@ -42,7 +42,7 @@ gboolean receiveACK(GQueue* acks, gint desc, gint timeout) {
       }
     } else {
       if (errno == EAGAIN) {
-        return new;
+        return newAckNum;
       } else {
         perror("Could not receive ACK");
         close(desc);
@@ -51,7 +51,7 @@ gboolean receiveACK(GQueue* acks, gint desc, gint timeout) {
     }
   }
 
-  return FALSE;
+  return 0;
 }
 
 void sendDatagram(gint desc, const Datagram* dgram) {

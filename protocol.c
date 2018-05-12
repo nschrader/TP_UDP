@@ -79,15 +79,18 @@ gint acptConnection(gint publicDesc) {
   return 0;
 }
 
-static guint estimateRTT(gint estimatedRTT, GQueue* acks, GHashTable* seqs){
-	guint seqNum = GPOINTER_TO_UINT(g_queue_peek_tail(acks));
-	guint seqTime = GPOINTER_TO_UINT(g_hash_table_lookup(seqs, GUINT_TO_POINTER(seqNum)));
-  guint sampleTime = g_get_monotonic_time() - seqTime;
-	if (estimatedRTT == 0) {
-		return sampleTime;
-	}
-	guint RTT = ALPHA * estimatedRTT + (1-ALPHA) * sampleTime;
-	return RTT;
+static void estimateRTT(guint* RTT, GHashTable* seqs, GQueue* acks, guint newAckNum) {
+  guint length = g_queue_get_length(acks);
+  for (guint n = (length-newAckNum); n < length; n++) {
+    guint seqNum = GPOINTER_TO_UINT(g_queue_peek_nth(acks, n));
+  	guint seqTime = GPOINTER_TO_UINT(g_hash_table_lookup(seqs, GINT_TO_POINTER(seqNum)));
+    guint sampleTime = g_get_monotonic_time() - seqTime;
+    if (*RTT == 0) {
+  		*RTT = sampleTime;
+  	} else {
+      *RTT = ALPHA * (*RTT) + (1-ALPHA) * sampleTime;
+    }
+  }
 }
 
 gboolean iterSeqRem(gpointer key, gpointer value, gpointer packs) {
@@ -128,10 +131,11 @@ void sendConnection(FILE* inputFile, gint desc) {
 	guint maxSeq = getMaxSeq(inputFile);
 
   while (GPOINTER_TO_UINT(g_queue_peek_tail(acks)) != maxSeq) {
-    if(receiveACK(acks, desc, 100)) {
-      RTT = estimateRTT(RTT, acks, seqs);
-			alert("RTT: %d", RTT);
+    guint newAckNum = receiveACK(acks, desc, 100);
+    if(newAckNum  > 0) {
+      estimateRTT(&RTT, seqs, acks, newAckNum);
 			RTO = BETA * RTT;
+      alert("RTT is now: %.0fms", RTT/1000.0);
     }
     //TODO: TO be removed
     usleep(100000); //Otherwise we quit so fast that we won't even receive
