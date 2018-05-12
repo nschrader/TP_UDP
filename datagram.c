@@ -18,6 +18,10 @@ Datagram receiveData(gint desc) {
   return dgram;
 }
 
+gint compAcks(gconstpointer a, gconstpointer b, gpointer user_data) {
+  return GPOINTER_TO_UINT(a) - GPOINTER_TO_UINT(b);
+}
+
 guint receiveACK(GQueue* acks, gint desc, gint timeout) {
   Datagram dgram = {0};
   setSocketTimeout(desc, timeout);
@@ -34,6 +38,7 @@ guint receiveACK(GQueue* acks, gint desc, gint timeout) {
 					alert("fast retransmit %u", ack);
 				} else {
 					g_queue_push_tail(acks, GUINT_TO_POINTER(ack));
+          g_queue_sort(acks, compAcks, NULL);
 					newAckNum++;
 					alert("Received ACK %d", ack);
 				}
