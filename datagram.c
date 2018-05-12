@@ -18,7 +18,7 @@ Datagram receiveData(gint desc) {
   return dgram;
 }
 
-gboolean receiveACK(GList** acks, gint desc, gint timeout) {
+gboolean receiveACK(GQueue* acks, gint desc, gint timeout) {
   Datagram dgram = {0};
   setSocketTimeout(desc, timeout);
   gint flags = timeout == 0 ? MSG_DONTWAIT : NO_FLAGS;
@@ -29,11 +29,11 @@ gboolean receiveACK(GList** acks, gint desc, gint timeout) {
     if (dgram.size != ERROR) {
       guint ack;
       if (sscanf((gchar*) &dgram.segment.data, "ACK%06u", &ack) == ONE_MATCH) {
-				if (g_list_find(*acks, GUINT_TO_POINTER(ack))){
+				if (g_queue_find(acks, GUINT_TO_POINTER(ack))) {
           //TODO: Implement Fast Retransmit
 					alert("fast retransmit %u", ack);
 				} else {
-					*acks = g_list_append(*acks, GUINT_TO_POINTER(ack));
+					g_queue_push_tail(acks, GUINT_TO_POINTER(ack));
 					new = TRUE;
 					alert("Received ACK %d", ack);
 				}

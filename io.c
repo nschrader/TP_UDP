@@ -48,14 +48,10 @@ void setSocketTimeout(gint desc, gint milliseconds) {
 }
 
 guint getMaxSeq(FILE* inputFile) {
-  //TODO: Remove alerts
 	Datagram dgram = {0};
 	fseek (inputFile, 0, SEEK_END);
 	guint size = ftell(inputFile);
-	alert("size %u", size);
-	guint maxSeq = (size / sizeof(dgram.segment.data)) + 1;
-	alert("maxSeq: %u", maxSeq);
-	return maxSeq;
+	return (size / sizeof(dgram.segment.data)) + 1;
 }
 
 Datagram readInputData(FILE *inputFile, guint seqNumber) {

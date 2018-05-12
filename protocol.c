@@ -79,17 +79,8 @@ gint acptConnection(gint publicDesc) {
   return 0;
 }
 
-//TODO: Remove those iterators
-void iterAcks(gpointer data, gpointer user_data) {
-  alert("no %u", GPOINTER_TO_UINT(data));
-}
-
-void iterSeqs(gpointer key, gpointer value, gpointer user_data) {
-  alert("no %u at %u", GPOINTER_TO_UINT(key), GPOINTER_TO_UINT(value));
-}
-
-static guint estimateRTT(gint estimatedRTT, GList* acks, GHashTable* seqs){
-	guint seqNum = GPOINTER_TO_UINT(g_list_last(acks)->data);
+static guint estimateRTT(gint estimatedRTT, GQueue* acks, GHashTable* seqs){
+	guint seqNum = GPOINTER_TO_UINT(g_queue_peek_tail(acks));
 	guint seqTime = GPOINTER_TO_UINT(g_hash_table_lookup(seqs, GUINT_TO_POINTER(seqNum)));
   guint sampleTime = g_get_monotonic_time() - seqTime;
 	if (estimatedRTT == 0) {
@@ -100,10 +91,10 @@ static guint estimateRTT(gint estimatedRTT, GList* acks, GHashTable* seqs){
 }
 
 gboolean iterSeqRem(gpointer key, gpointer value, gpointer packs) {
-	GList** acks = (GList**) packs;
-	if (g_list_find(*acks, key) != NULL) {
-		for (guint i = 1; i < GPOINTER_TO_UINT(key); i++){
-			*acks = g_list_remove(*acks, GUINT_TO_POINTER(i));
+	GQueue* acks = (GQueue*) packs;
+	if (g_queue_find(acks, key) != NULL) {
+		for (guint i = 1; i < GPOINTER_TO_UINT(key); i++) {
+			g_queue_remove(acks, GUINT_TO_POINTER(i));
 		}
 		return TRUE;
 	} else {
@@ -111,8 +102,7 @@ gboolean iterSeqRem(gpointer key, gpointer value, gpointer packs) {
 	}
 }
 
-
-static void majSeq(GList** acks, GHashTable* seqs, guint RTO, gint desc, FILE* inputFile) {
+static void majSeq(GQueue* acks, GHashTable* seqs, guint RTO, gint desc, FILE* inputFile) {
 	g_hash_table_foreach_remove(seqs, iterSeqRem, acks); //remove what is OK
 
 	GHashTableIter iter;
@@ -127,32 +117,18 @@ static void majSeq(GList** acks, GHashTable* seqs, guint RTO, gint desc, FILE* i
 			sendDatagram(desc, &dgram);
 		}
 	}
-  //TODO: To be removed
-	alert("Got the following ACKs:");
-  g_list_foreach(*acks, iterAcks, NULL);
-  alert("Send the following sequences:");
-  g_hash_table_foreach(seqs, iterSeqs, NULL);
 }
 
 void sendConnection(FILE* inputFile, gint desc) {
-  //TODO: Use GQueue
-  GList* acks = NULL;
+  GQueue* acks = g_queue_new();
   GHashTable* seqs = g_hash_table_new(g_direct_hash, g_direct_equal);
   guint sequence = FIRSTSEQ;
 	guint RTT = 0;
 	guint RTO = SEC_IN_USEC;
 	guint maxSeq = getMaxSeq(inputFile);
 
-  //TODO: Make some oneliner
-	guint currentSeq = 0;
-  while (currentSeq != maxSeq) {
-		GList* last = g_list_last(acks);
-		if (last) {
-			currentSeq = GPOINTER_TO_UINT(last->data);
-		}
-    //TODO: To be removed
-		alert("Exit condition %d", currentSeq);
-    if(receiveACK(&acks, desc, 100)) {
+  while (GPOINTER_TO_UINT(g_queue_peek_tail(acks)) != maxSeq) {
+    if(receiveACK(acks, desc, 100)) {
       RTT = estimateRTT(RTT, acks, seqs);
 			alert("RTT: %d", RTT);
 			RTO = BETA * RTT;
@@ -160,7 +136,7 @@ void sendConnection(FILE* inputFile, gint desc) {
     //TODO: TO be removed
     usleep(100000); //Otherwise we quit so fast that we won't even receive
 
-		majSeq(&acks, seqs, RTO, desc, inputFile);
+		majSeq(acks, seqs, RTO, desc, inputFile);
 
 		if (sequence <= maxSeq){
 			Datagram dgram = readInputData(inputFile, sequence);
@@ -172,6 +148,6 @@ void sendConnection(FILE* inputFile, gint desc) {
 		}
   }
 
-  g_list_free(acks);
+  g_queue_free(acks);
   g_hash_table_destroy(seqs);
 }
