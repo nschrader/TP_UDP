@@ -1,3 +1,4 @@
+//TODO: Maybe put stuff into another file, like window.c
 #include "protocol.h"
 #include "io.h"
 #include "datagram.h"
@@ -9,8 +10,6 @@
 
 #define ALPHA 0.875
 #define BETA 2
-
-#define SEC_IN_USEC (1000*1000)
 
 static void fatalTransmissionError(const gchar* msg) {
   if (!errno) {
@@ -79,12 +78,18 @@ gint acptConnection(gint publicDesc) {
   return 0;
 }
 
-static void estimateRTT(guint* RTT, GHashTable* seqs, GQueue* acks, guint newAckNum) {
-  guint length = g_queue_get_length(acks);
-  for (guint n = (length-newAckNum); n < length; n++) {
-    guint seqNum = GPOINTER_TO_UINT(g_queue_peek_nth(acks, n));
+static void transmit(gint desc, FILE* inputFile, guint sequence, GHashTable* seqs) {
+  Datagram dgram = readInputData(inputFile, sequence);
+  setDatagramSequence(&dgram, sequence);
+  sendDatagram(desc, &dgram);
+  g_hash_table_replace(seqs, GUINT_TO_POINTER(sequence), GUINT_TO_POINTER(getMonotonicTimeSave()));
+}
+
+static void estimateRTT(guint* RTT, GHashTable* seqs, guint lastAck, guint newAckNum) {
+  for (guint seqNum = (lastAck-newAckNum+1); seqNum <= lastAck; seqNum++) {
   	guint seqTime = GPOINTER_TO_UINT(g_hash_table_lookup(seqs, GINT_TO_POINTER(seqNum)));
-    guint sampleTime = g_get_monotonic_time() - seqTime;
+    assert(seqTime != 0);
+    guint sampleTime = getMonotonicTimeSave() - seqTime;
     if (*RTT == 0) {
   		*RTT = sampleTime;
   	} else {
@@ -93,92 +98,77 @@ static void estimateRTT(guint* RTT, GHashTable* seqs, GQueue* acks, guint newAck
   }
 }
 
-gboolean iterSeqRem(gpointer key, gpointer value, gpointer packs) {
-	GQueue* acks = (GQueue*) packs;
-	if (g_queue_find(acks, key) != NULL) {
-		for (guint i = 1; i < GPOINTER_TO_UINT(key); i++) {
-			g_queue_remove(acks, GUINT_TO_POINTER(i));
-		}
-		return TRUE;
-	} else {
-		return FALSE;
-	}
+static gboolean iterSeqRem(gpointer key, gpointer value, gpointer last) {
+  return GPOINTER_TO_UINT(key) <= GPOINTER_TO_UINT(last);
 }
 
-
-static void majSeq(GQueue* acks, GHashTable* seqs, guint RTO, gint desc, FILE* inputFile, guint* ssthresh, guint* winSize, guint* winLeft) {
-	g_hash_table_foreach_remove(seqs, iterSeqRem, acks);
+//TODO: Clean signature up
+static void majSeq(guint lastAck, GHashTable* seqs, guint RTO, gint desc, FILE* inputFile, guint* ssthresh, guint* winSize) {
+	g_hash_table_foreach_remove(seqs, iterSeqRem, GUINT_TO_POINTER(lastAck));
 
 	GHashTableIter iter;
 	gpointer key, value;
 	g_hash_table_iter_init(&iter, seqs);
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		guint time = GPOINTER_TO_UINT(value);
-		if (g_get_monotonic_time() - time >= RTO) {
+		if (getMonotonicTimeSave() - time >= RTO) {
 			alert("seq %u timeout - sending again ...", GPOINTER_TO_UINT(key));
-			Datagram dgram = readInputData(inputFile, GPOINTER_TO_UINT(key));
-			setDatagramSequence(&dgram, GPOINTER_TO_UINT(key));
-			sendDatagram(desc, &dgram);
+			transmit(desc, inputFile, GPOINTER_TO_UINT(key), seqs);
 			*ssthresh = (*winSize)/2 + 1;
 			*winSize = 1;
-			*winLeft = 1;
-			break;
 		}
 	}
 }
 
-void setWin (guint ssthresh, guint* winSize, guint* winLeft, guint* t0, guint ackNum, guint RTT){
+//TODO: Clean this up
+//Seems buggy, evolution of contention window is not as I would have expected
+void setWin(guint ssthresh, guint* winSize, guint* t0, guint ackNum, guint RTT) {
 	if (*winSize == ssthresh) {
-		*t0 = g_get_monotonic_time();
+		*t0 = getMonotonicTimeSave();
 		*winSize += ackNum;
-		*winLeft += 2 * ackNum;
 	} else if (*winSize < ssthresh) {
 		*winSize += ackNum;
-		*winLeft += 2 * ackNum;
-	} else if (*winSize > ssthresh && (g_get_monotonic_time() - *t0) > RTT) {
+	} else if (*winSize > ssthresh && (getMonotonicTimeSave() - *t0) > RTT) {
 		*winSize += 1;
-		*winLeft += 2;
 	}
 }
 
 void sendConnection(FILE* inputFile, gint desc) {
-  GQueue* acks = g_queue_new();
+  //TODO: Rename this to "win"
   GHashTable* seqs = g_hash_table_new(g_direct_hash, g_direct_equal);
+  guint lastAck = 0;
   guint sequence = FIRSTSEQ;
 	guint RTT = 0;
-	guint RTO = SEC_IN_USEC;
+	guint RTO = USECS_IN_SEC;
 	guint maxSeq = getMaxSeq(inputFile);
-	//TODO: update it and use it
-	//guint timeout = 0;
-	
+
 	guint winSize = 1;
 	guint ssthresh = 10;
-	guint winLeft = 1;
 	guint t0 = 0;
 
-  while (GPOINTER_TO_UINT(g_queue_peek_tail(acks)) != maxSeq) {
-    alert ("winSize %u, winLeft %u, ssthresh %u", winSize, winLeft, ssthresh);
-    guint newAckNum = receiveACK(acks, desc, 100);
+  while (lastAck != maxSeq) {
+    //TODO: At the end of transmission timeout falls down to zero because
+    //contention window is big enough, but no more sequences are available.
+    //This generates a lot of processor load...
+  	guint timeout = g_hash_table_size(seqs) < winSize ? 0 : RTO;
+    //TODO: Remove
+    alert("winSize %u, seqSize %u, ssthresh %u, timeout %u", winSize, g_hash_table_size(seqs), ssthresh, timeout);
+    guint newAckNum = receiveACK(&lastAck, desc, timeout);
     if(newAckNum  > 0) {
-      estimateRTT(&RTT, seqs, acks, newAckNum);
+      estimateRTT(&RTT, seqs, lastAck, newAckNum);
 			RTO = BETA * RTT;
       alert("RTT is now: %.0fms", RTT/1000.0);
-      setWin (ssthresh, &winSize, &winLeft, &t0, newAckNum, RTT);
+      setWin(ssthresh, &winSize, &t0, newAckNum, RTT);
     }
-    
-		majSeq(acks, seqs, RTO, desc, inputFile, &ssthresh, &winSize, &winLeft);
 
-		if (sequence <= maxSeq && winLeft > 0){
-			Datagram dgram = readInputData(inputFile, sequence);
-			setDatagramSequence(&dgram, sequence);
-			sendDatagram(desc, &dgram);
-			g_hash_table_insert(seqs, GUINT_TO_POINTER(sequence), GUINT_TO_POINTER(g_get_monotonic_time()));
-			alert("Send seq %s", dgram.segment.sequence);
+		majSeq(lastAck, seqs, RTO, desc, inputFile, &ssthresh, &winSize);
+
+		while (sequence <= maxSeq && g_hash_table_size(seqs) < winSize) {
+      alert("Send seq %u", sequence);
+			transmit(desc, inputFile, sequence, seqs);
 			sequence++;
-			winLeft --;
 		}
   }
 
-  g_queue_free(acks);
   g_hash_table_destroy(seqs);
 }

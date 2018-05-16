@@ -36,10 +36,10 @@ void getNameFromSocket(gint desc, const Address* addr) {
   getsockname(desc, (struct sockaddr*) addr, &size);
 }
 
-void setSocketTimeout(gint desc, gint milliseconds) {
+void setSocketTimeout(gint desc, gint useconds) {
   struct timeval tv;
-  tv.tv_sec = 0;
-  tv.tv_usec = 1000*milliseconds;
+  tv.tv_sec = useconds/USECS_IN_SEC;
+  tv.tv_usec = useconds%USECS_IN_SEC;
   if (setsockopt(desc, SOL_SOCKET, SO_RCVTIMEO, &tv,sizeof(tv)) == ERROR) {
     perror("Could not set timeout");
     close(desc);
@@ -61,4 +61,8 @@ Datagram readInputData(FILE *inputFile, guint seqNumber) {
   dgram.size = fread(&dgram.segment.data, sizeof(guint8), sizeof(dgram.segment.data), inputFile);
   dgram.size += SEQSIZE;
   return dgram;
+}
+
+guint getMonotonicTimeSave() {
+  return GPOINTER_TO_UINT(GUINT_TO_POINTER(g_get_monotonic_time()));
 }

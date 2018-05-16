@@ -18,11 +18,7 @@ Datagram receiveData(gint desc) {
   return dgram;
 }
 
-gint compAcks(gconstpointer a, gconstpointer b, gpointer user_data) {
-  return GPOINTER_TO_UINT(a) - GPOINTER_TO_UINT(b);
-}
-
-guint receiveACK(GQueue* acks, gint desc, gint timeout) {
+guint receiveACK(guint *lastAck, gint desc, gint timeout) {
   Datagram dgram = {0};
   setSocketTimeout(desc, timeout);
   gint flags = timeout == 0 ? MSG_DONTWAIT : NO_FLAGS;
@@ -30,23 +26,25 @@ guint receiveACK(GQueue* acks, gint desc, gint timeout) {
 
   while (TRUE) {
     dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), flags);
+    flags = MSG_DONTWAIT;
     if (dgram.size != ERROR) {
       guint ack;
       if (sscanf((gchar*) &dgram.segment.data, "ACK%06u", &ack) == ONE_MATCH) {
-				if (g_queue_find(acks, GUINT_TO_POINTER(ack))) {
+				if (ack <= *lastAck) {
           //TODO: Implement Fast Retransmit
 					alert("fast retransmit %u", ack);
 				} else {
-					g_queue_push_tail(acks, GUINT_TO_POINTER(ack));
-          g_queue_sort(acks, compAcks, NULL);
-					newAckNum++;
-					alert("Received ACK %d", ack);
+					newAckNum = ack - *lastAck;
+          *lastAck = ack;
 				}
       } else {
         alert("Got some weird ACKs out here...");
       }
     } else {
       if (errno == EAGAIN) {
+        if (newAckNum > 0) {
+          alert("Received %u ACKs up to no %u", newAckNum, *lastAck);
+        }
         return newAckNum;
       } else {
         perror("Could not receive ACK");
