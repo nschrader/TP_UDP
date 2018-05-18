@@ -10,6 +10,7 @@
 
 #define ALPHA 0.875
 #define BETA 2
+#define DUP_ACK_THRESH 3
 
 static void fatalTransmissionError(const gchar* msg) {
   if (!errno) {
@@ -106,6 +107,7 @@ static gboolean iterSeqRem(gpointer key, gpointer value, gpointer last) {
 static void majSeq(guint lastAck, GHashTable* seqs, guint RTO, gint desc, FILE* inputFile, guint* ssthresh, guint* winSize) {
 	g_hash_table_foreach_remove(seqs, iterSeqRem, GUINT_TO_POINTER(lastAck));
 
+  //TODO: Maybe we should iterate from lastAck upto sequence and respect winsize
 	GHashTableIter iter;
 	gpointer key, value;
 	g_hash_table_iter_init(&iter, seqs);
@@ -153,7 +155,9 @@ void sendConnection(FILE* inputFile, gint desc) {
   	guint timeout = g_hash_table_size(seqs) < winSize ? 0 : RTO;
     //TODO: Remove
     alert("winSize %u, seqSize %u, ssthresh %u, timeout %u", winSize, g_hash_table_size(seqs), ssthresh, timeout);
-    guint newAckNum = receiveACK(&lastAck, desc, timeout);
+
+    guint dupAck = 0;
+    guint newAckNum = receiveACK(&lastAck, desc, timeout, &dupAck);
     if(newAckNum  > 0) {
       estimateRTT(&RTT, seqs, lastAck, newAckNum);
 			RTO = BETA * RTT;
@@ -161,13 +165,18 @@ void sendConnection(FILE* inputFile, gint desc) {
       setWin(ssthresh, &winSize, &t0, newAckNum, RTT);
     }
 
-		majSeq(lastAck, seqs, RTO, desc, inputFile, &ssthresh, &winSize);
-
-		while (sequence <= maxSeq && g_hash_table_size(seqs) < winSize) {
-      alert("Send seq %u", sequence);
-			transmit(desc, inputFile, sequence, seqs);
-			sequence++;
-		}
+    //TODO: Maybe we should not do either or, but both
+    if (dupAck > DUP_ACK_THRESH) {
+      alert("%u ACK duplicates of %u detected - Fast Retransmit of %u ...", dupAck, lastAck, lastAck+1);
+      transmit(desc, inputFile, lastAck+1, seqs);
+		} else {
+      majSeq(lastAck, seqs, RTO, desc, inputFile, &ssthresh, &winSize);
+  		while (sequence <= maxSeq && g_hash_table_size(seqs) < winSize) {
+        alert("Send seq %u", sequence);
+  			transmit(desc, inputFile, sequence, seqs);
+  			sequence++;
+  		}
+    }
   }
 
   g_hash_table_destroy(seqs);

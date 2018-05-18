@@ -18,11 +18,12 @@ Datagram receiveData(gint desc) {
   return dgram;
 }
 
-guint receiveACK(guint *lastAck, gint desc, gint timeout) {
+guint receiveACK(guint *lastAck, gint desc, gint timeout, guint* dupAck) {
   Datagram dgram = {0};
   setSocketTimeout(desc, timeout);
   gint flags = timeout == 0 ? MSG_DONTWAIT : NO_FLAGS;
-  guint newAckNum = 0;
+  guint firstAck = *lastAck;
+  *dupAck = 0;
 
   while (TRUE) {
     dgram.size = recv(desc, &dgram.segment.data, sizeof(DatagramSegment), flags);
@@ -30,18 +31,14 @@ guint receiveACK(guint *lastAck, gint desc, gint timeout) {
     if (dgram.size != ERROR) {
       guint ack;
       if (sscanf((gchar*) &dgram.segment.data, "ACK%06u", &ack) == ONE_MATCH) {
-				if (ack <= *lastAck) {
-          //TODO: Implement Fast Retransmit
-					alert("fast retransmit %u", ack);
-				} else {
-					newAckNum = ack - *lastAck;
-          *lastAck = ack;
-				}
+        *dupAck = (ack <= *lastAck) ? *dupAck+1 : 0;
+        *lastAck = MAX(ack, *lastAck);
       } else {
         alert("Got some weird ACKs out here...");
       }
     } else {
       if (errno == EAGAIN) {
+        guint newAckNum = *lastAck - firstAck;
         if (newAckNum > 0) {
           alert("Received %u ACKs up to no %u", newAckNum, *lastAck);
         }

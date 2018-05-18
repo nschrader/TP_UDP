@@ -21,7 +21,7 @@ typedef struct {
 typedef struct sockaddr_in Address;
 
 Datagram receiveData(gint desc);
-guint receiveACK(guint *lastAck, gint desc, gint timeout);
+guint receiveACK(guint *lastAck, gint desc, gint timeout, guint *dupAck);
 void sendDatagram(gint desc, const Datagram* dgram);
 gchar* stringifyDatagramData(Datagram* dgram);
 void setDatagramSequence(Datagram* dgram, guint sequence);
