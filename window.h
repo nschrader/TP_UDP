@@ -7,9 +7,11 @@ typedef struct {
   GHashTable* win;
   guint winSize;
   guint ssthresh;
+  gboolean retrans;
   guint RTT;
   guint RTO;
-  guint t0;
+  guint winSize_t0;
+  guint retrans_t0;
 } Window;
 
 void transmit(Window* window, guint sequence, gint desc, FILE* inputFile);

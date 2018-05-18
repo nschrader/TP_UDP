@@ -27,12 +27,12 @@ void estimateRTT(Window* window, guint lastAck, guint newAckNum) {
 
 void setWin(Window* window, guint ackNum) {
 	if (window->winSize == window->ssthresh) {
-		window->t0 = getMonotonicTimeSave();
+		window->winSize_t0 = getMonotonicTimeSave();
 		window->winSize += ackNum;
 	} else if (window->winSize < window->ssthresh) {
 		window->winSize += ackNum;
-	} else if (window->winSize > window->ssthresh && (getMonotonicTimeSave() - window->t0) > window->RTT) {
-    window->t0 = getMonotonicTimeSave();
+	} else if (window->winSize > window->ssthresh && (getMonotonicTimeSave() - window->winSize_t0) > window->RTT) {
+    window->winSize_t0 = getMonotonicTimeSave();
 		window->winSize += 1;
 	}
 }
@@ -43,23 +43,28 @@ static gboolean iterSeqRem(gpointer key, gpointer value, gpointer last) {
 
 void timeoutWin(Window* window, guint lastAck, guint sequence, gint desc, FILE* inputFile) {
 	g_hash_table_foreach_remove(window->win, iterSeqRem, GUINT_TO_POINTER(lastAck));
+  guint retransCounter = 0;
 
-  //TODO: Maybe we should iterate from lastAck upto sequence and respect winsize
-	GHashTableIter iter;
-	gpointer key, value;
-	g_hash_table_iter_init(&iter, window->win);
-	gboolean timeout = FALSE;
-	while (g_hash_table_iter_next(&iter, &key, &value)) {
-		guint time = GPOINTER_TO_UINT(value);
+  for (guint ack = lastAck+1; ack < sequence && retransCounter < window->winSize; ack++) {
+    guint time = GPOINTER_TO_UINT(g_hash_table_lookup(window->win, GUINT_TO_POINTER(ack)));
+    //alert("ack %u, sequence %u, timestamp %u, time %u, RTO %u", ack, sequence, time, getMonotonicTimeSave(), window->RTO);
 		if (getMonotonicTimeSave() - time >= window->RTO) {
-			alert("seq %u timeout - sending again ...", GPOINTER_TO_UINT(key));
-			transmit(window, GPOINTER_TO_UINT(key), desc, inputFile);
-			timeout = TRUE;
+			alert("seq %u timeout - sending again ...", ack);
+			transmit(window, ack, desc, inputFile);
+      retransCounter++;
+
+      if (!window->retrans) {
+        //TODO: Maybe it's more efficient to avoid resetting ssthresh to 1 because window was reset to 1 just before
+        alert("Window reset");
+    		window->ssthresh = (window->winSize/2) + 1;
+    		window->winSize = (window->winSize/4) + 1;
+        window->retrans = TRUE;
+        window->retrans_t0 = getMonotonicTimeSave();
+      }
 		}
-	}
-	if (timeout) {
-    //TODO: Maybe it's more efficient to avoid resetting ssthresh to 1 because window was reset to 1 just before
-		window->ssthresh = (window->winSize/2) + 1;
-		window->winSize = 1;
-	}
+  }
+
+  if (retransCounter == 0 && getMonotonicTimeSave() - window->retrans_t0 > window->RTO) {
+    window->retrans = FALSE;
+  }
 }

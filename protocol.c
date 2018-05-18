@@ -84,9 +84,11 @@ void sendConnection(FILE* inputFile, gint desc) {
     .win = g_hash_table_new(g_direct_hash, g_direct_equal),
     .winSize = WIN_SIZE,
     .ssthresh = SSTHRESH,
+    .retrans = FALSE,
     .RTT = 0,
     .RTO = USECS_IN_SEC,
-    .t0 = 0
+    .winSize_t0 = 0,
+    .retrans_t0 = 0
   };
 
   while (lastAck != maxSeq) {
@@ -111,6 +113,7 @@ void sendConnection(FILE* inputFile, gint desc) {
   			sequence++;
   		}
     }
+    alert("New window: win %u, winSize %u, ssthresh %u, retrans %d, sequence %u, lastAck %u", g_hash_table_size(window.win), window.winSize, window.ssthresh, window.retrans, sequence, lastAck);
   }
 
   g_hash_table_destroy(window.win);
