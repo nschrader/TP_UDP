@@ -113,7 +113,6 @@ void sendConnection(FILE* inputFile, gint desc) {
   			sequence++;
   		}
     }
-    alert("New window: win %u, winSize %u, ssthresh %u, retrans %d, sequence %u, lastAck %u", g_hash_table_size(window.win), window.winSize, window.ssthresh, window.retrans, sequence, lastAck);
   }
 
   g_hash_table_destroy(window.win);
