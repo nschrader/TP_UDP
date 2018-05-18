@@ -4,6 +4,10 @@
 #include "libs.h"
 
 #define CHILD 0
+#define KiB (1024)
+#define MiB (KiB*KiB)
+#define INPUT_BUFFER_SIZE (10*MiB)
+#define OUTPUT_BUFFER_SIZE (10*KiB)
 
 Address getArguments(const gint argc, const gchar *argv[]) {
   Address addr;
@@ -39,6 +43,10 @@ gint main(const gint argc, const gchar *argv[]) {
   gchar* inputFileName = stringifyDatagramData(&inputFileNameDgram);
   FILE* inputFile = fopen(inputFileName, "rb");
   if (inputFile != NULL) {
+    static char inputBuffer[INPUT_BUFFER_SIZE];
+    static char outputBuffer[OUTPUT_BUFFER_SIZE];
+    setvbuf(inputFile, inputBuffer, _IOFBF, INPUT_BUFFER_SIZE);
+    setvbuf(stdout, outputBuffer, _IOFBF, OUTPUT_BUFFER_SIZE);
     sendConnection(inputFile, privateDesc);
   } else {
     alert("File %s asked for not found: %s", inputFileName, strerror(errno));

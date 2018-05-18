@@ -55,7 +55,6 @@ guint getMaxSeq(FILE* inputFile) {
 }
 
 Datagram readInputData(FILE *inputFile, guint seqNumber) {
-  //TODO: This might slow down IO, we could try using a bigger buffer or so
   Datagram dgram = {0};
   fseek(inputFile, (seqNumber - 1) * sizeof(dgram.segment.data), SEEK_SET);
   dgram.size = fread(&dgram.segment.data, sizeof(guint8), sizeof(dgram.segment.data), inputFile);
