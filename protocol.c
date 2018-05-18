@@ -76,40 +76,41 @@ gint acptConnection(gint publicDesc) {
 }
 
 void sendConnection(FILE* inputFile, gint desc) {
-  GHashTable* win = g_hash_table_new(g_direct_hash, g_direct_equal);
   guint lastAck = 0;
   guint sequence = FIRSTSEQ;
-	guint RTT = 0;
-	guint RTO = USECS_IN_SEC;
 	guint maxSeq = getMaxSeq(inputFile);
 
-	guint winSize = WIN_SIZE;
-	guint ssthresh = THRESH;
-	guint t0 = 0;
+  Window window = {
+    .win = g_hash_table_new(g_direct_hash, g_direct_equal),
+    .winSize = WIN_SIZE,
+    .ssthresh = SSTHRESH,
+    .RTT = 0,
+    .RTO = USECS_IN_SEC,
+    .t0 = 0
+  };
 
   while (lastAck != maxSeq) {
-  	guint timeout = (sequence <= maxSeq && g_hash_table_size(win) < winSize) ? 0 : RTO;
+  	guint timeout = (sequence <= maxSeq && g_hash_table_size(window.win) < window.winSize) ? 0 : window.RTO;
     guint dupAck = 0;
     guint newAckNum = receiveACK(&lastAck, desc, timeout, &dupAck);
     if(newAckNum  > 0) {
-      estimateRTT(&RTT, win, lastAck, newAckNum);
-			RTO = BETA * RTT;
-      alert("RTT is now: %.0fms", RTT/1000.0);
-      setWin(ssthresh, &winSize, &t0, newAckNum, RTT);
+      estimateRTT(&window, lastAck, newAckNum);
+      alert("RTT is now: %.0fms", window.RTT/1000.0);
+      setWin(&window, newAckNum);
     }
 
     if (dupAck > DUP_ACK_THRESH) {
       alert("%u ACK duplicates of %u detected - Fast Retransmit of %u...", dupAck, lastAck, lastAck+1);
-      transmit(desc, inputFile, lastAck+1, win);
+      transmit(&window, lastAck+1, desc, inputFile);
     }
-    
-    timeoutWin(lastAck, win, RTO, desc, inputFile, &ssthresh, &winSize);
-		while (sequence <= maxSeq && g_hash_table_size(win) < winSize) {
+
+    timeoutWin(&window, lastAck, sequence, desc, inputFile);
+    while (sequence <= maxSeq && g_hash_table_size(window.win) < window.winSize) {
       alert("Send seq %u", sequence);
-			transmit(desc, inputFile, sequence, win);
-			sequence++;
-		}
+      transmit(&window, sequence, desc, inputFile);
+      sequence++;
+    }
   }
 
-  g_hash_table_destroy(win);
+  g_hash_table_destroy(window.win);
 }
