@@ -109,14 +109,19 @@ static void majSeq(guint lastAck, GHashTable* seqs, guint RTO, gint desc, FILE* 
 	GHashTableIter iter;
 	gpointer key, value;
 	g_hash_table_iter_init(&iter, seqs);
+	gboolean timeout = FALSE;
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		guint time = GPOINTER_TO_UINT(value);
 		if (getMonotonicTimeSave() - time >= RTO) {
 			alert("seq %u timeout - sending again ...", GPOINTER_TO_UINT(key));
 			transmit(desc, inputFile, GPOINTER_TO_UINT(key), seqs);
-			*ssthresh = (*winSize)/2 + 1;
-			*winSize = 1;
+			timeout = TRUE;
 		}
+	}
+	if (timeout) {
+		*ssthresh = (*winSize)/2 + 1;
+		*winSize = 1;
+		alert("winsize reset");
 	}
 }
 
@@ -130,6 +135,7 @@ void setWin(guint ssthresh, guint* winSize, guint* t0, guint ackNum, guint RTT) 
 		*winSize += ackNum;
 	} else if (*winSize > ssthresh && (getMonotonicTimeSave() - *t0) > RTT) {
 		*winSize += 1;
+		*t0 = getMonotonicTimeSave();
 	}
 }
 
@@ -152,7 +158,6 @@ void sendConnection(FILE* inputFile, gint desc) {
     //This generates a lot of processor load...
   	guint timeout = g_hash_table_size(seqs) < winSize ? 0 : RTO;
     //TODO: Remove
-    alert("winSize %u, seqSize %u, ssthresh %u, timeout %u", winSize, g_hash_table_size(seqs), ssthresh, timeout);
     guint newAckNum = receiveACK(&lastAck, desc, timeout);
     if(newAckNum  > 0) {
       estimateRTT(&RTT, seqs, lastAck, newAckNum);
@@ -162,7 +167,8 @@ void sendConnection(FILE* inputFile, gint desc) {
     }
 
 		majSeq(lastAck, seqs, RTO, desc, inputFile, &ssthresh, &winSize);
-
+		alert("winSize %u, seqSize %u, ssthresh %u, timeout %u", winSize, g_hash_table_size(seqs), ssthresh, timeout);
+    
 		while (sequence <= maxSeq && g_hash_table_size(seqs) < winSize) {
       alert("Send seq %u", sequence);
 			transmit(desc, inputFile, sequence, seqs);
