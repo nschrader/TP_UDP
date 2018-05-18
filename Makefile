@@ -1,7 +1,7 @@
 CC 			= gcc
 CFLAGS 	= -std=gnu99 ${shell pkg-config --cflags glib-2.0}
 LFLAGS	= -g ${shell pkg-config --libs glib-2.0}
-COMMON	= io.o protocol.o datagram.o server.o
+COMMON	= io.o protocol.o datagram.o server.o window.o
 HEADER	= ${COMMON.o:.h}
 
 debug: CFLAGS += -Wall -g

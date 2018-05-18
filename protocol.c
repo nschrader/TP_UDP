@@ -1,16 +1,12 @@
-//TODO: Maybe put stuff into another file, like window.c
 #include "protocol.h"
 #include "io.h"
 #include "datagram.h"
+#include "window.h"
 #include "libs.h"
 
 #define ERROR -1
 #define NO_FLAGS 0
 #define EQUALS 0
-
-#define ALPHA 0.875
-#define BETA 2
-#define DUP_ACK_THRESH 3
 
 static void fatalTransmissionError(const gchar* msg) {
   if (!errno) {
@@ -79,72 +75,8 @@ gint acptConnection(gint publicDesc) {
   return 0;
 }
 
-static void transmit(gint desc, FILE* inputFile, guint sequence, GHashTable* seqs) {
-  Datagram dgram = readInputData(inputFile, sequence);
-  setDatagramSequence(&dgram, sequence);
-  sendDatagram(desc, &dgram);
-  g_hash_table_replace(seqs, GUINT_TO_POINTER(sequence), GUINT_TO_POINTER(getMonotonicTimeSave()));
-}
-
-static void estimateRTT(guint* RTT, GHashTable* seqs, guint lastAck, guint newAckNum) {
-  for (guint seqNum = (lastAck-newAckNum+1); seqNum <= lastAck; seqNum++) {
-  	guint seqTime = GPOINTER_TO_UINT(g_hash_table_lookup(seqs, GINT_TO_POINTER(seqNum)));
-    assert(seqTime != 0);
-    guint sampleTime = getMonotonicTimeSave() - seqTime;
-    if (*RTT == 0) {
-  		*RTT = sampleTime;
-  	} else {
-      *RTT = ALPHA * (*RTT) + (1-ALPHA) * sampleTime;
-    }
-  }
-}
-
-static gboolean iterSeqRem(gpointer key, gpointer value, gpointer last) {
-  return GPOINTER_TO_UINT(key) <= GPOINTER_TO_UINT(last);
-}
-
-//TODO: Clean signature up
-static void majSeq(guint lastAck, GHashTable* seqs, guint RTO, gint desc, FILE* inputFile, guint* ssthresh, guint* winSize) {
-	g_hash_table_foreach_remove(seqs, iterSeqRem, GUINT_TO_POINTER(lastAck));
-
-  //TODO: Maybe we should iterate from lastAck upto sequence and respect winsize
-	GHashTableIter iter;
-	gpointer key, value;
-	g_hash_table_iter_init(&iter, seqs);
-	gboolean timeout = FALSE;
-	while (g_hash_table_iter_next(&iter, &key, &value)) {
-		guint time = GPOINTER_TO_UINT(value);
-		if (getMonotonicTimeSave() - time >= RTO) {
-			alert("seq %u timeout - sending again ...", GPOINTER_TO_UINT(key));
-			transmit(desc, inputFile, GPOINTER_TO_UINT(key), seqs);
-			timeout = TRUE;
-		}
-	}
-	if (timeout) {
-    //TODO: Maybe it's more efficient to avoid resetting ssthresh to 1 because window was reset to 1 just before
-		*ssthresh = (*winSize)/2 + 1;
-		*winSize = 1;
-		alert("winsize reset");
-	}
-}
-
-//TODO: Clean this up
-//Seems buggy, evolution of contention window is not as I would have expected
-void setWin(guint ssthresh, guint* winSize, guint* t0, guint ackNum, guint RTT) {
-	if (*winSize == ssthresh) {
-		*t0 = getMonotonicTimeSave();
-		*winSize += ackNum;
-	} else if (*winSize < ssthresh) {
-		*winSize += ackNum;
-	} else if (*winSize > ssthresh && (getMonotonicTimeSave() - *t0) > RTT) {
-		*winSize += 1;
-		*t0 = getMonotonicTimeSave();
-	}
-}
-
 void sendConnection(FILE* inputFile, gint desc) {
-  //TODO: Rename this to "win"
-  GHashTable* seqs = g_hash_table_new(g_direct_hash, g_direct_equal);
+  GHashTable* win = g_hash_table_new(g_direct_hash, g_direct_equal);
   guint lastAck = 0;
   guint sequence = FIRSTSEQ;
 	guint RTT = 0;
@@ -156,11 +88,11 @@ void sendConnection(FILE* inputFile, gint desc) {
 	guint t0 = 0;
 
   while (lastAck != maxSeq) {
-  	guint timeout = (sequence <= maxSeq && g_hash_table_size(seqs) < winSize) ? 0 : RTO;
+  	guint timeout = (sequence <= maxSeq && g_hash_table_size(win) < winSize) ? 0 : RTO;
     guint dupAck = 0;
     guint newAckNum = receiveACK(&lastAck, desc, timeout, &dupAck);
     if(newAckNum  > 0) {
-      estimateRTT(&RTT, seqs, lastAck, newAckNum);
+      estimateRTT(&RTT, win, lastAck, newAckNum);
 			RTO = BETA * RTT;
       alert("RTT is now: %.0fms", RTT/1000.0);
       setWin(ssthresh, &winSize, &t0, newAckNum, RTT);
@@ -168,20 +100,17 @@ void sendConnection(FILE* inputFile, gint desc) {
 
     //TODO: Maybe we should not do either or, but both
     if (dupAck > DUP_ACK_THRESH) {
-      alert("%u ACK duplicates of %u detected - Fast Retransmit of %u ...", dupAck, lastAck, lastAck+1);
-      transmit(desc, inputFile, lastAck+1, seqs);
+      alert("%u ACK duplicates of %u detected - Fast Retransmit of %u...", dupAck, lastAck, lastAck+1);
+      transmit(desc, inputFile, lastAck+1, win);
 		} else {
-      majSeq(lastAck, seqs, RTO, desc, inputFile, &ssthresh, &winSize);
-      //TODO: Remove
-      alert("winSize %u, seqSize %u, ssthresh %u, timeout %u", winSize, g_hash_table_size(seqs), ssthresh, timeout);
-
-  		while (sequence <= maxSeq && g_hash_table_size(seqs) < winSize) {
+      timeoutWin(lastAck, win, RTO, desc, inputFile, &ssthresh, &winSize);
+  		while (sequence <= maxSeq && g_hash_table_size(win) < winSize) {
         alert("Send seq %u", sequence);
-  			transmit(desc, inputFile, sequence, seqs);
+  			transmit(desc, inputFile, sequence, win);
   			sequence++;
   		}
     }
   }
 
-  g_hash_table_destroy(seqs);
+  g_hash_table_destroy(win);
 }
