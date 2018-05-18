@@ -8,7 +8,6 @@
 #define USECS_IN_SEC (1000*1000)
 
 //TODO: Maybe we will have less problems with output if the stdout buffer would be bigger
-//TODO: Make new make target for ndebug
 #ifndef NDEBUG
 #define alert(fmt, ...) g_printf("[%d] " fmt "\n", getpid(), ##__VA_ARGS__)
 #else
