@@ -98,18 +98,17 @@ void sendConnection(FILE* inputFile, gint desc) {
       setWin(ssthresh, &winSize, &t0, newAckNum, RTT);
     }
 
-    //TODO: Maybe we should not do either or, but both
     if (dupAck > DUP_ACK_THRESH) {
       alert("%u ACK duplicates of %u detected - Fast Retransmit of %u...", dupAck, lastAck, lastAck+1);
       transmit(desc, inputFile, lastAck+1, win);
-		} else {
-      timeoutWin(lastAck, win, RTO, desc, inputFile, &ssthresh, &winSize);
-  		while (sequence <= maxSeq && g_hash_table_size(win) < winSize) {
-        alert("Send seq %u", sequence);
-  			transmit(desc, inputFile, sequence, win);
-  			sequence++;
-  		}
     }
+    
+    timeoutWin(lastAck, win, RTO, desc, inputFile, &ssthresh, &winSize);
+		while (sequence <= maxSeq && g_hash_table_size(win) < winSize) {
+      alert("Send seq %u", sequence);
+			transmit(desc, inputFile, sequence, win);
+			sequence++;
+		}
   }
 
   g_hash_table_destroy(win);
