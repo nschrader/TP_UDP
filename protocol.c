@@ -111,14 +111,20 @@ static void majSeq(guint lastAck, GHashTable* seqs, guint RTO, gint desc, FILE* 
 	GHashTableIter iter;
 	gpointer key, value;
 	g_hash_table_iter_init(&iter, seqs);
+	gboolean timeout = FALSE;
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		guint time = GPOINTER_TO_UINT(value);
 		if (getMonotonicTimeSave() - time >= RTO) {
 			alert("seq %u timeout - sending again ...", GPOINTER_TO_UINT(key));
 			transmit(desc, inputFile, GPOINTER_TO_UINT(key), seqs);
-			*ssthresh = (*winSize)/2 + 1;
-			*winSize = 1;
+			timeout = TRUE;
 		}
+	}
+	if (timeout) {
+    //TODO: Maybe it's more efficient to avoid resetting ssthresh to 1 because window was reset to 1 just before
+		*ssthresh = (*winSize)/2 + 1;
+		*winSize = 1;
+		alert("winsize reset");
 	}
 }
 
@@ -132,6 +138,7 @@ void setWin(guint ssthresh, guint* winSize, guint* t0, guint ackNum, guint RTT) 
 		*winSize += ackNum;
 	} else if (*winSize > ssthresh && (getMonotonicTimeSave() - *t0) > RTT) {
 		*winSize += 1;
+		*t0 = getMonotonicTimeSave();
 	}
 }
 
@@ -149,13 +156,7 @@ void sendConnection(FILE* inputFile, gint desc) {
 	guint t0 = 0;
 
   while (lastAck != maxSeq) {
-    //TODO: At the end of transmission timeout falls down to zero because
-    //contention window is big enough, but no more sequences are available.
-    //This generates a lot of processor load...
-  	guint timeout = g_hash_table_size(seqs) < winSize ? 0 : RTO;
-    //TODO: Remove
-    alert("winSize %u, seqSize %u, ssthresh %u, timeout %u", winSize, g_hash_table_size(seqs), ssthresh, timeout);
-
+  	guint timeout = (sequence <= maxSeq && g_hash_table_size(seqs) < winSize) ? 0 : RTO;
     guint dupAck = 0;
     guint newAckNum = receiveACK(&lastAck, desc, timeout, &dupAck);
     if(newAckNum  > 0) {
@@ -171,6 +172,9 @@ void sendConnection(FILE* inputFile, gint desc) {
       transmit(desc, inputFile, lastAck+1, seqs);
 		} else {
       majSeq(lastAck, seqs, RTO, desc, inputFile, &ssthresh, &winSize);
+      //TODO: Remove
+      alert("winSize %u, seqSize %u, ssthresh %u, timeout %u", winSize, g_hash_table_size(seqs), ssthresh, timeout);
+
   		while (sequence <= maxSeq && g_hash_table_size(seqs) < winSize) {
         alert("Send seq %u", sequence);
   			transmit(desc, inputFile, sequence, seqs);
