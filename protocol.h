@@ -11,6 +11,7 @@
 #define DUP_ACK_THRESH 3
 #define WIN_SIZE 1
 #define SSTHRESH 10
+#define RETRANS_THRESH 4
 
 void tmntConnection(gint desc);
 gint acptConnection(gint publicDesc);

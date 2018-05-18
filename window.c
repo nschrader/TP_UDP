@@ -35,6 +35,9 @@ void setWin(Window* window, guint ackNum) {
     window->winSize_t0 = getMonotonicTimeSave();
 		window->winSize += 1;
 	}
+  if (getMonotonicTimeSave() - window->retrans_t0 > window->RTO/RETRANS_THRESH) {
+    window->retrans = FALSE;
+  }
 }
 
 static gboolean iterSeqRem(gpointer key, gpointer value, gpointer last) {
@@ -62,9 +65,5 @@ void timeoutWin(Window* window, guint lastAck, guint sequence, gint desc, FILE* 
         window->retrans_t0 = getMonotonicTimeSave();
       }
 		}
-  }
-
-  if (retransCounter == 0 && getMonotonicTimeSave() - window->retrans_t0 > window->RTO) {
-    window->retrans = FALSE;
   }
 }
