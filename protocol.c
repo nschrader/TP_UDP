@@ -83,8 +83,8 @@ void sendConnection(FILE* inputFile, gint desc) {
 	guint RTO = USECS_IN_SEC;
 	guint maxSeq = getMaxSeq(inputFile);
 
-	guint winSize = 1;
-	guint ssthresh = 10;
+	guint winSize = WIN_SIZE;
+	guint ssthresh = THRESH;
 	guint t0 = 0;
 
   while (lastAck != maxSeq) {
