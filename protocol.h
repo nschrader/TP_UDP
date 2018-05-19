@@ -10,7 +10,8 @@
 #define BETA 2
 #define DUP_ACK_THRESH 3
 #define WIN_SIZE 90
-#define THRESH 20
+#define SSTHRESH 20
+#define RETRANS_THRESH 4
 
 void tmntConnection(gint desc);
 gint acptConnection(gint publicDesc);
