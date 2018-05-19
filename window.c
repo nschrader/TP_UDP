@@ -26,6 +26,9 @@ void estimateRTT(Window* window, guint lastAck, guint newAckNum) {
 }
 
 void setWin(Window* window, guint ackNum) {
+  if (window->retrans) {
+    return;
+  }
 	if (window->winSize == window->ssthresh) {
 		window->winSize_t0 = getMonotonicTimeSave();
 		window->winSize += ackNum;
@@ -50,15 +53,12 @@ void timeoutWin(Window* window, guint lastAck, guint sequence, gint desc, FILE* 
 
   for (guint ack = lastAck+1; ack < sequence && retransCounter < window->winSize; ack++) {
     guint time = GPOINTER_TO_UINT(g_hash_table_lookup(window->win, GUINT_TO_POINTER(ack)));
-    //alert("ack %u, sequence %u, timestamp %u, time %u, RTO %u", ack, sequence, time, getMonotonicTimeSave(), window->RTO);
 		if (getMonotonicTimeSave() - time >= window->RTO) {
 			alert("seq %u timeout - sending again ...", ack);
 			transmit(window, ack, desc, inputFile);
       retransCounter++;
 
       if (!window->retrans) {
-        //TODO: Maybe it's more efficient to avoid resetting ssthresh to 1 because window was reset to 1 just before
-        alert("Window reset");
     		window->ssthresh = (window->winSize/2) + 1;
     		window->winSize = (window->winSize/4) + 1;
         window->retrans = TRUE;

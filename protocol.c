@@ -97,11 +97,10 @@ void sendConnection(FILE* inputFile, gint desc) {
     guint newAckNum = receiveACK(&lastAck, desc, timeout, &dupAck);
     if(newAckNum  > 0) {
       estimateRTT(&window, lastAck, newAckNum);
-      alert("RTT is now: %.0fms", window.RTT/1000.0);
+      alert("RTT is now %.0fms, winSize is now %u", window.RTT/1000.0, window.winSize);
       setWin(&window, newAckNum);
     }
 
-    //TODO: Maybe we should not do either or, but both
     if (dupAck > DUP_ACK_THRESH) {
       alert("%u ACK duplicates of %u detected - Fast Retransmit of %u...", dupAck, lastAck, lastAck+1);
       transmit(&window, lastAck+1, desc, inputFile);
