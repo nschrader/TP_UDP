@@ -97,7 +97,7 @@ void sendConnection(FILE* inputFile, gint desc) {
     guint newAckNum = receiveACK(&lastAck, desc, timeout, &dupAck);
     if(newAckNum  > 0) {
       estimateRTT(&window, lastAck, newAckNum);
-      alert("RTT is now %.0fms, winSize is now %u", window.RTT/1000.0, window.winSize);
+      alert("From now on: RTT %.0fms, winSize %u, ssthresh %u", window.RTT/1000.0, window.winSize, window.ssthresh);
       setWin(&window, newAckNum);
     }
 

@@ -26,9 +26,6 @@ void estimateRTT(Window* window, guint lastAck, guint newAckNum) {
 }
 
 void setWin(Window* window, guint ackNum) {
-  if (window->retrans) {
-    return;
-  }
 	if (window->winSize == window->ssthresh) {
 		window->winSize_t0 = getMonotonicTimeSave();
 		window->winSize += ackNum;
