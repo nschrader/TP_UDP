@@ -57,7 +57,7 @@ void timeoutWin(Window* window, guint lastAck, guint sequence, gint desc, FILE* 
 
       if (!window->retrans) {
     		window->ssthresh = (window->winSize/2) + 1;
-    		window->winSize = (window->winSize/4) + 1;
+    		window->winSize = (window->winSize/FRECOVERY_THRESH) + 1;
         window->retrans = TRUE;
         window->retrans_t0 = getMonotonicTimeSave();
       }
