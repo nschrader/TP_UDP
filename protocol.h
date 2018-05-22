@@ -10,7 +10,7 @@
 #define BETA 2
 #define DUP_ACK_THRESH 3
 #define WIN_SIZE 90
-#define SSTHRESH 10
+#define SSTHRESH 50
 #define RETRANS_THRESH 0.2
 #define FRECOVERY_THRESH 2
 
