@@ -6,7 +6,7 @@
 #define GCC_PACKED __attribute__((packed))
 #define SEGSIZE 1500
 #define SEQSIZE 6
-#define SEQFORMAT "%05u"
+#define SEQFORMAT "%06u"
 
 typedef struct GCC_PACKED {
   gchar sequence[SEQSIZE];

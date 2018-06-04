@@ -68,5 +68,7 @@ gchar* stringifyDatagramData(Datagram* dgram) {
 }
 
 void setDatagramSequence(Datagram* dgram, guint sequence) {
-  g_snprintf(dgram->segment.sequence, SEQSIZE, SEQFORMAT, sequence);
+  char buf[SEQSIZE+1];
+  g_snprintf(buf, sizeof(buf), SEQFORMAT, sequence);
+  memcpy(dgram->segment.sequence, buf, SEQSIZE);
 }
